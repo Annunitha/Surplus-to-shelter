@@ -1029,61 +1029,104 @@ export default function RecipientDashboard({ initialTab }) {
                 </div>
               </div>
 
-              {/* 4 KPI Summary Cards (Required by Section 6) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Available Offers Card */}
-                <div
-                  onClick={() => navigate('/recipient/offers')}
-                  className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7] cursor-pointer hover:border-[#5F684B] transition-all">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Available Offers</span>
-                    <Inbox size={17} className="text-[#5F684B]" />
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+                <div className="xl:col-span-8 rounded-2xl overflow-hidden border border-[#D7D2C7] bg-[#F8F5EE] shadow-xs">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#D7D2C7] bg-[#F3EFE7]">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Shelter Map</p>
+                      <h3 className="text-lg font-bold text-[#22211E] mt-1">Active Supply Coverage</h3>
+                    </div>
+                    <button
+                      onClick={() => navigate('/recipient/offers')}
+                      className="px-3 py-1.5 rounded-lg border border-[#D7D2C7] bg-white text-[11px] font-semibold text-[#22211E] hover:bg-[#F3EFE7]">
+                      Review offers
+                    </button>
                   </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-3xl font-extrabold text-[#22211E]">
-                      {dashboardStats?.stats?.available_offers ?? offers.length}
-                    </span>
-                    <span className="text-xs text-[#5F684B] font-semibold flex items-center gap-0.5">
-                      View Offers <ArrowRight size={12} />
-                    </span>
+                  <div className="h-[420px] w-full bg-[#EAE6DE]">
+                    <iframe
+                      title="Recipient food map"
+                      src="/map/map.html"
+                      className="h-full w-full border-0"
+                    />
                   </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Pending allocation batches</p>
                 </div>
 
-                {/* Accepted Donations Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Accepted Donations</span>
-                    <Package size={17} className="text-[#5F684B]" />
-                  </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {dashboardStats?.stats?.accepted_donations ?? 0}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Approved & in pipeline</p>
-                </div>
+                <div className="xl:col-span-4 card-warm rounded-2xl border border-[#D7D2C7] overflow-hidden shadow-xs">
+                  <div className="divide-y divide-[#D7D2C7]">
+                    <div
+                      onClick={() => navigate('/recipient/offers')}
+                      className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer hover:bg-[#F3EFE7] transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Inbox size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Available Offers</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.available_offers ?? offers.length}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Pending</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">allocation</p>
+                      </div>
+                    </div>
 
-                {/* Incoming Deliveries Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Incoming Deliveries</span>
-                    <Truck size={17} className="text-[#5F684B]" />
-                  </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {dashboardStats?.stats?.incoming_deliveries ?? 0}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Couriers on the way</p>
-                </div>
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Package size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Accepted Donations</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.accepted_donations ?? 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Approved</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">pipeline</p>
+                      </div>
+                    </div>
 
-                {/* Received Today Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Received Today</span>
-                    <CheckCircle2 size={17} className="text-[#5F684B]" />
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Truck size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Incoming Deliveries</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.incoming_deliveries ?? 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Couriers</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">en route</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Received Today</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.received_today ?? 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Meals</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">delivered</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {dashboardStats?.stats?.received_today ?? 0}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Meals safely delivered</p>
                 </div>
               </div>
 

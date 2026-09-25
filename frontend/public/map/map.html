@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Food Help Map</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f8f5ee;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+            border-radius: 0;
+        }
+
+        .shelter-icon {
+            font-size: 28px;
+            text-align: center;
+            line-height: 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map("map").setView([9.9252, 78.1198], 13);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+
+        const shelterIcon = L.divIcon({
+            html: "🏠🍱",
+            className: "shelter-icon",
+            iconSize: [45, 45],
+            iconAnchor: [22, 40]
+        });
+
+        const shelters = [
+            { name: "Food Help Shelter 1", lat: 9.9252, lng: 78.1198 },
+            { name: "Food Help Shelter 2", lat: 9.9300, lng: 78.1250 },
+            { name: "Food Help Shelter 3", lat: 9.9180, lng: 78.1100 },
+            { name: "Food Help Shelter 4", lat: 9.9350, lng: 78.1150 },
+            { name: "Food Help Shelter 5", lat: 9.9150, lng: 78.1280 },
+            { name: "Food Help Shelter 6", lat: 9.9400, lng: 78.1050 },
+            { name: "Food Help Shelter 7", lat: 9.9100, lng: 78.1180 }
+        ];
+
+        shelters.forEach(function (shelter) {
+            L.marker([shelter.lat, shelter.lng], { icon: shelterIcon })
+                .addTo(map)
+                .bindPopup("<b>🏠🍱 " + shelter.name + "</b><br>Food assistance available");
+        });
+    </script>
+</body>
+
+</html>

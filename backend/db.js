@@ -63,6 +63,10 @@ function normalizeSql(sql, params = []) {
     return 'lng';
   });
 
+  normalized = normalized.replace(/ST_SetSRID\(ST_MakePoint\(([^,]+),\s*([^\)]+)\),\s*4326\)::geography/gi, "json_object('lat', $1, 'lng', $2)");
+  normalized = normalized.replace(/ST_SetSRID\(ST_MakePoint\((\?|\$\d+),\s*(\?|\$\d+)\),\s*4326\)::geography/gi, "json_object('lat', $1, 'lng', $2)");
+  normalized = normalized.replace(/ST_MakePoint\(([^,]+),\s*([^\)]+)\)/gi, "json_object('lat', $1, 'lng', $2)");
+
   normalized = normalized.replace(/ST_Distance\([^)]*\)/gi, '0');
   normalized = normalized.replace(/ST_DWithin\([^)]*\)/gi, '1 = 1');
 

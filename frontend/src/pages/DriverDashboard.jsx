@@ -417,7 +417,14 @@ export default function DriverDashboard() {
                   <div className="h-[420px] w-full bg-[#EAE6DE]">
                     <iframe
                       title="Driver route map"
-                      src="/map/map.html"
+                      src={
+                        `/map/map.html?driverLat=${driver?.lat ?? assignment?.pickup?.lat ?? 28.6139}` +
+                        `&driverLng=${driver?.lng ?? assignment?.pickup?.lng ?? 77.2090}` +
+                        `&pickupLat=${assignment?.pickup?.lat ?? 28.6139}` +
+                        `&pickupLng=${assignment?.pickup?.lng ?? 77.2090}` +
+                        `&dropoffLat=${assignment?.dropoff?.lat ?? 28.6428}` +
+                        `&dropoffLng=${assignment?.dropoff?.lng ?? 77.2215}`
+                      }
                       className="h-full w-full border-0"
                     />
                   </div>

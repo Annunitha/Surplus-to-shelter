@@ -45,10 +45,10 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ error: 'Donor requires a valid org_name and address_text with valid lat/lng' });
       }
       const result = await pool.query(
-        `INSERT INTO donors (org_name, contact_email, contact_phone, location, address_text)
-         VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, $6)
+        `INSERT INTO donors (org_name, contact_email, contact_phone, location, lat, lng, address_text)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id`,
-        [cleanOrgName, cleanEmail, cleanPhone || null, safeLng, safeLat, cleanAddress]
+        [org_name, email, contact_phone || null, `POINT(${lng} ${lat})`, lat, lng, address_text]
       );
       profileId = result.rows[0].id;
 
@@ -57,10 +57,10 @@ router.post('/register', async (req, res) => {
         return res.status(400).json({ error: 'Recipient requires a valid org_name, address_text, valid lat/lng, accepted_food_types, and capacity_max' });
       }
       const result = await pool.query(
-        `INSERT INTO recipients (org_name, contact_email, contact_phone, location, address_text, accepted_food_types, capacity_max)
-         VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, $6, $7, $8)
+        `INSERT INTO recipients (org_name, contact_email, contact_phone, location, lat, lng, address_text, accepted_food_types, capacity_max)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
-        [cleanOrgName, cleanEmail, cleanPhone || null, safeLng, safeLat, cleanAddress, accepted_food_types, capacity_max]
+        [org_name, email, contact_phone || null, `POINT(${lng} ${lat})`, lat, lng, address_text, accepted_food_types, capacity_max]
       );
       profileId = result.rows[0].id;
 
@@ -71,10 +71,10 @@ router.post('/register', async (req, res) => {
       let result;
       if (hasValidCoords) {
         result = await pool.query(
-          `INSERT INTO drivers (name, contact_phone, current_location)
-           VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography)
+          `INSERT INTO drivers (name, contact_phone, current_location, lat, lng)
+           VALUES ($1, $2, $3, $4, $5)
            RETURNING id`,
-          [cleanName, cleanPhone || null, safeLng, safeLat]
+          [name, contact_phone || null, `POINT(${lng} ${lat})`, lat, lng]
         );
       } else {
         result = await pool.query(

@@ -68,7 +68,20 @@ function normalizeSql(sql, params = []) {
     return 'lng';
   });
 
-  normalized = normalized.replace(/ST_Distance\([^)]*\)/gi, '0.0');
+  normalized = normalized.replace(
+    /ST_SetSRID\s*\(\s*ST_MakePoint\s*\(\s*(\$\d+|[\w.]+)\s*,\s*(\$\d+|[\w.]+)\s*\)\s*,\s*4326\s*\)\s*::\s*geography/gi,
+    "json_object('lat', $2, 'lng', $1)"
+  );
+  normalized = normalized.replace(
+    /ST_SetSRID\s*\(\s*ST_MakePoint\s*\(\s*(\$\d+|[\w.]+)\s*,\s*(\$\d+|[\w.]+)\s*\)\s*,\s*4326\s*\)/gi,
+    "json_object('lat', $2, 'lng', $1)"
+  );
+  normalized = normalized.replace(
+    /ST_MakePoint\s*\(\s*(\$\d+|[\w.]+)\s*,\s*(\$\d+|[\w.]+)\s*\)/gi,
+    "json_object('lat', $2, 'lng', $1)"
+  );
+
+  normalized = normalized.replace(/ST_Distance\([^)]*\)/gi, '0');
   normalized = normalized.replace(/ST_DWithin\([^)]*\)/gi, '1 = 1');
   normalized = normalized.replace(
     /(\$\d+)\s*=\s*ANY\(([^)]+)\)/gi,
@@ -77,10 +90,6 @@ function normalizeSql(sql, params = []) {
   normalized = normalized.replace(
     /([\w.]+)\s*=\s*ANY\((\$\d+)\)/gi,
     (_, column, arrayParam) => `instr(${arrayParam}, ${column}) > 0`
-  );
-  normalized = normalized.replace(
-    /ST_SetSRID\(ST_MakePoint\((\$\d+),\s*(\$\d+)\),\s*4326\)/gi,
-    (_, lngParam, latParam) => `json_object('lat', ${latParam}, 'lng', ${lngParam})`
   );
 
   const positional = [];
@@ -231,7 +240,10 @@ function createSchema() {
       status TEXT NOT NULL DEFAULT 'posted',
       matched_recipient_id TEXT,
       matched_driver_id TEXT,
-      city_id TEXT NOT NULL DEFAULT 'demo-city'
+      city_id TEXT NOT NULL DEFAULT 'demo-city',
+      fssai_certificate_name TEXT,
+      fssai_certificate_type TEXT,
+      fssai_certificate_data_url TEXT
     );
 
     CREATE TABLE IF NOT EXISTS deliveries (
@@ -274,8 +286,20 @@ function createSchema() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS donation_connections (
+      id TEXT PRIMARY KEY,
+      donation_id TEXT NOT NULL UNIQUE,
+      donor_id TEXT NOT NULL,
+      recipient_id TEXT,
+      driver_id TEXT,
+      connection_status TEXT NOT NULL DEFAULT 'matched',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
     CREATE INDEX IF NOT EXISTS idx_donations_match ON donations(matched_recipient_id);
+    CREATE INDEX IF NOT EXISTS idx_connection_donation ON donation_connections(donation_id);
   `;
 
   return new Promise((resolve, reject) => {
@@ -295,7 +319,11 @@ function createSchema() {
             'ALTER TABLE feedback ADD COLUMN reviewer_role TEXT',
             'ALTER TABLE feedback ADD COLUMN reviewer_id TEXT',
             'ALTER TABLE donations ADD COLUMN notes TEXT',
-            'ALTER TABLE donations ADD COLUMN temperature_condition TEXT'
+            'ALTER TABLE donations ADD COLUMN temperature_condition TEXT',
+            'ALTER TABLE donations ADD COLUMN fssai_certificate_name TEXT',
+            'ALTER TABLE donations ADD COLUMN fssai_certificate_type TEXT',
+            'ALTER TABLE donations ADD COLUMN fssai_certificate_data_url TEXT',
+            'CREATE TABLE IF NOT EXISTS donation_connections (id TEXT PRIMARY KEY, donation_id TEXT NOT NULL UNIQUE, donor_id TEXT NOT NULL, recipient_id TEXT, driver_id TEXT, connection_status TEXT NOT NULL DEFAULT "matched", created_at TEXT DEFAULT (datetime("now")), updated_at TEXT DEFAULT (datetime("now")))'
           ];
           let index = 0;
           const runMigration = () => {

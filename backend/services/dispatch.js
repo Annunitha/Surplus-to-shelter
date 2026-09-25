@@ -13,6 +13,25 @@ function emitEvent(eventName, payload) {
   }
 }
 
+async function upsertDonationConnection({ donationId, donorId, recipientId, driverId = null, status = 'assigned' }) {
+  if (!donationId || !donorId) return null;
+
+  const connectionId = require('crypto').randomUUID();
+  await pool.query(
+    `INSERT INTO donation_connections (id, donation_id, donor_id, recipient_id, driver_id, connection_status, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, datetime('now'), datetime('now'))
+     ON CONFLICT(donation_id) DO UPDATE SET
+       donor_id = excluded.donor_id,
+       recipient_id = excluded.recipient_id,
+       driver_id = excluded.driver_id,
+       connection_status = excluded.connection_status,
+       updated_at = datetime('now')`,
+    [connectionId, donationId, donorId, recipientId || null, driverId || null, status]
+  );
+
+  return { donationId, donorId, recipientId, driverId, status };
+}
+
 /**
  * Task 1 & FR-4.1: Assign nearest available driver to a 'matched' donation.
  * If no driver is available, leave in 'matched' awaiting driver (FR-4.4).
@@ -24,7 +43,7 @@ async function assignDriver(donationId, preferredDriverId = null) {
 
     // Fetch donation
     const donRes = await client.query(
-      `SELECT id, food_description, food_type, quantity, unit, weight_kg,
+      `SELECT id, donor_id, food_description, food_type, quantity, unit, weight_kg,
               pickup_location, pickup_address, status, matched_driver_id, expiry_window_end
        FROM donations
        WHERE id = $1
@@ -38,6 +57,11 @@ async function assignDriver(donationId, preferredDriverId = null) {
     }
 
     const donation = donRes.rows[0];
+
+    const donorAndRecipient = await client.query(
+      `SELECT donor_id, matched_recipient_id FROM donations WHERE id = $1`,
+      [donationId]
+    );
 
     // Only assign driver if donation is 'matched' and doesn't already have an assigned driver
     if (donation.status !== 'matched') {
@@ -85,6 +109,15 @@ async function assignDriver(donationId, preferredDriverId = null) {
       `UPDATE drivers SET status = 'en_route' WHERE id = $1`,
       [driver.id]
     );
+
+    const donorInfo = donorAndRecipient.rows[0] || {};
+    await upsertDonationConnection({
+      donationId,
+      donorId: donorInfo.donor_id || donation.donor_id,
+      recipientId: donorInfo.matched_recipient_id || donation.matched_recipient_id,
+      driverId: driver.id,
+      status: 'assigned'
+    });
 
     // Create deliveries row with pickup and dropoff ETAs
     const now = new Date();

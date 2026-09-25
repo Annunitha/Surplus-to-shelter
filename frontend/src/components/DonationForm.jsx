@@ -9,13 +9,10 @@ export default function DonationForm({ onSuccess, onCancel }) {
     return d.toISOString().slice(0, 10);
   }
 
-  function getDefaultExpiryTime() {
-    const d = new Date(Date.now() + 4 * 60 * 60 * 1000);
-    return d.toTimeString().slice(0, 5);
-  }
+  
 
   const [date, setDate] = useState(getDefaultExpiryDate());
-  const [time, setTime] = useState(getDefaultExpiryTime());
+ 
 
   const [form, setForm] = useState({
     food_description: '',
@@ -28,9 +25,11 @@ export default function DonationForm({ onSuccess, onCancel }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
+  const [certificate, setCertificate] = useState(null);
 
   const foodTypes = [
     { value: 'prepared_meals', label: 'Prepared Meals' },
+    { value: 'preplanned_meals', label: 'Pre-planned Meals' },
     { value: 'produce', label: 'Fresh Produce' },
     { value: 'bakery', label: 'Bakery & Pastries' },
     { value: 'dairy', label: 'Dairy & Refrigerated' },
@@ -41,12 +40,52 @@ export default function DonationForm({ onSuccess, onCancel }) {
   const units = [
     { value: 'kg', label: 'Kilograms (kg)' },
     { value: 'lbs', label: 'Pounds (lbs)' },
-    { value: 'servings', label: 'Servings / Trays' }
+    { value: 'servings', label: 'Servings / Trays' },
+    { value: 'units', label: 'Units' },
+    { value: 'packets', label: 'packets' },
   ];
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm(f => ({ ...f, [name]: value }));
+  }
+
+  function handleCertificateUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) {
+      setCertificate(null);
+      return;
+    }
+
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF or a scanned image (PNG/JPG/WEBP) of the FSSAI certificate.');
+      setCertificate(null);
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Certificate file must be smaller than 5 MB.');
+      setCertificate(null);
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCertificate({
+        name: file.name,
+        type: file.type,
+        dataUrl: reader.result
+      });
+      setError('');
+    };
+    reader.onerror = () => {
+      setError('Unable to read the selected certificate. Please choose another file.');
+      setCertificate(null);
+    };
+    reader.readAsDataURL(file);
   }
 
   async function handleSubmit(e) {
@@ -56,9 +95,9 @@ export default function DonationForm({ onSuccess, onCancel }) {
     setLoading(true);
 
     try {
-      const combinedDateTime = new Date(`${date}T${time}:00`);
+      const combinedDateTime = new Date(`${date}`);
       if (isNaN(combinedDateTime.getTime()) || combinedDateTime.getTime() <= Date.now()) {
-        throw new Error('Expiry window must be set to a future date and time.');
+        throw new Error('Expiry window must be set to a future date.');
       }
 
       const data = await apiRequest('/api/donations', {
@@ -66,7 +105,10 @@ export default function DonationForm({ onSuccess, onCancel }) {
         body: JSON.stringify({
           ...form,
           quantity: parseFloat(form.quantity),
-          expiry_window_end: combinedDateTime.toISOString()
+          expiry_window_end: combinedDateTime.toISOString(),
+          fssai_certificate_name: certificate?.name || null,
+          fssai_certificate_type: certificate?.type || null,
+          fssai_certificate_data_url: certificate?.dataUrl || null
         })
       });
 
@@ -78,6 +120,7 @@ export default function DonationForm({ onSuccess, onCancel }) {
         unit: 'kg',
         pickup_address: form.pickup_address
       });
+      setCertificate(null);
 
       if (onSuccess) {
         setTimeout(() => onSuccess(data.donation), 900);
@@ -204,7 +247,7 @@ export default function DonationForm({ onSuccess, onCancel }) {
         {/* Expiry Window End (Date and Time pickers side by side matching Image 3) */}
         <div>
           <label className="block text-xs font-semibold text-[#22211E] mb-1.5">
-            Expiry window end
+            Food Expiry Date
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="relative">
@@ -217,17 +260,34 @@ export default function DonationForm({ onSuccess, onCancel }) {
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl input-warm text-sm"
               />
             </div>
-            <div className="relative">
-              <Clock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#99958B]" />
-              <input
-                type="time"
-                required
-                value={time}
-                onChange={e => setTime(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl input-warm text-sm"
-              />
-            </div>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-[#22211E] mb-1.5">
+            FSSAI food safety certificate
+          </label>
+          <input
+            type="file"
+            accept="application/pdf,image/png,image/jpeg,image/webp"
+            onChange={handleCertificateUpload}
+            className="block w-full text-sm text-[#6F6C64] file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-[#5F684B] file:text-white file:font-semibold file:cursor-pointer file:hover:bg-[#4D553C]"
+          />
+          <p className="mt-1.5 text-[11px] text-[#6F6C64]">
+            Upload a PDF or scanned image copy for recipient verification.
+          </p>
+          {certificate && (
+            <div className="mt-2 rounded-xl border border-[#D7D2C7] bg-[#F8F5EE] px-3 py-2 text-xs text-[#22211E] flex items-center justify-between gap-2">
+              <span className="truncate">{certificate.name}</span>
+              <button
+                type="button"
+                onClick={() => setCertificate(null)}
+                className="text-[#A05245] font-semibold cursor-pointer"
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Submit Actions */}

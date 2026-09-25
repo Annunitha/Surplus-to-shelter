@@ -139,6 +139,20 @@ export default function DonorDashboard({ initialTab }) {
     return `Expires in ${hrs}h ${mins}m`;
   }
 
+  function connectionSummary(donation) {
+    if (!donation) return 'Donor → Pending match';
+    const recipient = donation.recipient_name || 'Recipient';
+    const driver = donation.driver_name || 'Awaiting driver';
+
+    if (donation.matched_recipient_id && donation.matched_driver_id) {
+      return `Donor → ${recipient} → ${driver}`;
+    }
+    if (donation.matched_recipient_id) {
+      return `Donor → ${recipient}`;
+    }
+    return 'Donor → Pending match';
+  }
+
   function exportCSV() {
     if (donations.length === 0) return alert('No donations to export.');
     const headers = ['ID', 'Description', 'Type', 'Quantity', 'Unit', 'Status', 'Posted At', 'Expiry'];
@@ -247,32 +261,113 @@ export default function DonorDashboard({ initialTab }) {
                 </div>
               </div>
 
-              {/* 4 Operations KPI Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                <KpiCard
-                  label="Total Food Rescued"
-                  value={`${totalKg.toFixed(0)} kg`}
-                  change={`${totalCount} surplus batches posted`}
-                  icon={Package}
-                />
-                <KpiCard
-                  label="Active Dispatches"
-                  value={activePickups}
-                  change={activePickups > 0 ? `${activePickups} in transit / matched` : '0 couriers in transit'}
-                  icon={Truck}
-                />
-                <KpiCard
-                  label="Delivered Surplus"
-                  value={deliveredCount}
-                  change={`${deliveredCount} batches fulfilled`}
-                  icon={CheckCircle2}
-                />
-                <KpiCard
-                  label="Estimated Meals"
-                  value={mealsRescued}
-                  change={`${co2eAvoided} kg CO2e avoided`}
-                  icon={Sparkles}
-                />
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+                <div className="xl:col-span-8 rounded-2xl overflow-hidden border border-[#D7D2C7] bg-[#F8F5EE] shadow-xs">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#D7D2C7] bg-[#F3EFE7]">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Network Map</p>
+                      <h3 className="text-lg font-bold text-[#22211E] mt-1">Live Donation Coverage</h3>
+                    </div>
+                    <button
+                      onClick={() => { setActiveTab('donations'); navigate('/donor/donations'); }}
+                      className="px-3 py-1.5 rounded-lg border border-[#D7D2C7] bg-white text-[11px] font-semibold text-[#22211E] hover:bg-[#F3EFE7]">
+                      View manifests
+                    </button>
+                  </div>
+                  <div className="relative h-[420px] w-full bg-[#EAE6DE]">
+                    <iframe
+                      title="Donor logistics map"
+                      src="/map/map.html"
+                      className="h-full w-full border-0"
+                    />
+                    <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-2xl border border-[#D7D2C7] bg-[#F8F5EE]/92 backdrop-blur-sm p-3 shadow-sm">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Donation chain</div>
+                      <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-[#22211E] flex-wrap">
+                        <span className="rounded-full bg-[#E8EED2] px-2 py-1 text-[#4D553C]">Donor</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#EAF4F5] px-2 py-1 text-[#2F5D68]">Recipient</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#F3EFE7] px-2 py-1 text-[#4D553C]">Driver</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="xl:col-span-4 card-warm rounded-2xl border border-[#D7D2C7] overflow-hidden shadow-xs">
+                  <div className="divide-y divide-[#D7D2C7]">
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Package size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Total Food Rescued</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{totalKg.toFixed(0)} kg</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">{totalCount} batches</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">posted</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Truck size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Active Dispatches</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{activePickups}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">{activePickups > 0 ? 'In transit' : 'Standby'}</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">couriers</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Delivered Surplus</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{deliveredCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">batches</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">fulfilled</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Sparkles size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Estimated Meals</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{mealsRescued}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">{co2eAvoided} kg</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">CO2e avoided</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* 2-Column Operational Pipeline Hub */}

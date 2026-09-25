@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Food Help Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        /* Search area */
+        .search-area {
+            background: white;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: relative;
+            z-index: 1000;
+        }
+
+        #placeInput {
+            flex: 1;
+            max-width: 500px;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        #searchBtn {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #333;
+            color: white;
+        }
+
+        #searchBtn:hover {
+            background: #555;
+        }
+
+        /* Map */
+        #map {
+            height: calc(100vh - 70px);
+            width: 100%;
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+
+            .search-area {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            #placeInput {
+                max-width: none;
+            }
+
+            #map {
+                height: calc(100vh - 120px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Search box -->
+    <div class="search-area">
+
+        <input
+            type="text"
+            id="placeInput"
+            placeholder="🔍 Search for a place...">
+
+        <button id="searchBtn" onclick="searchPlace()">
+            Search
+        </button>
+
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+
+        // Starting location
+        const map = L.map("map").setView(
+            [9.9252, 78.1198],
+            13
+        );
+
+
+        // OpenStreetMap
+        L.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+                maxZoom: 19,
+                attribution:
+                    "&copy; OpenStreetMap contributors"
+            }
+        ).addTo(map);
+
+
+        // Marker for searched location
+        let searchMarker;
+
+
+        // Food-help locations
+        const foodLocations = [
+
+            {
+                name: "Free Food Center",
+                lat: 9.9252,
+                lng: 78.1198
+            },
+
+            {
+                name: "Community Kitchen",
+                lat: 9.9300,
+                lng: 78.1250
+            },
+
+            {
+                name: "Food Donation Point",
+                lat: 9.9180,
+                lng: 78.1100
+            },
+
+            {
+                name: "Free Meal Distribution",
+                lat: 9.9350,
+                lng: 78.1150
+            }
+
+        ];
+
+
+        // Add food markers
+        foodLocations.forEach(function(place) {
+
+            L.marker([
+                place.lat,
+                place.lng
+            ])
+            .addTo(map)
+            .bindPopup(
+                "<b>🍱 " +
+                place.name +
+                "</b><br><br>" +
+                "Food help available here."
+            );
+
+        });
+
+
+        // Search function
+        async function searchPlace() {
+
+            const place =
+                document.getElementById(
+                    "placeInput"
+                ).value.trim();
+
+
+            if (place === "") {
+
+                alert("Please enter a place.");
+
+                return;
+            }
+
+
+            const url =
+                "https://nominatim.openstreetmap.org/search?format=json&q="
+                + encodeURIComponent(place);
+
+
+            try {
+
+                const response =
+                    await fetch(url);
+
+                const data =
+                    await response.json();
+
+
+                if (data.length === 0) {
+
+                    alert("Place not found.");
+
+                    return;
+                }
+
+
+                const latitude =
+                    parseFloat(data[0].lat);
+
+                const longitude =
+                    parseFloat(data[0].lon);
+
+
+                // Move map
+                map.setView(
+                    [latitude, longitude],
+                    15
+                );
+
+
+                // Remove previous search marker
+                if (searchMarker) {
+
+                    map.removeLayer(
+                        searchMarker
+                    );
+                }
+
+
+                // Add new marker
+                searchMarker =
+                    L.marker([
+                        latitude,
+                        longitude
+                    ])
+                    .addTo(map);
+
+
+                searchMarker
+                    .bindPopup(
+                        "<b>📍 " +
+                        data[0].display_name +
+                        "</b>"
+                    )
+                    .openPopup();
+
+            }
+
+            catch (error) {
+
+                console.log(error);
+
+                alert(
+                    "Unable to search. Check your internet connection."
+                );
+            }
+        }
+
+
+        // Press Enter to search
+        document
+            .getElementById("placeInput")
+            .addEventListener(
+                "keydown",
+                function(event) {
+
+                    if (event.key === "Enter") {
+
+                        searchPlace();
+
+                    }
+
+                }
+            );
+
+    </script>
+
+</body>
+
+</html>

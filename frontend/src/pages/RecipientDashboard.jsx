@@ -50,6 +50,7 @@ export default function RecipientDashboard({ initialTab }) {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackTarget, setFeedbackTarget] = useState(null);
+  const [certificatePreview, setCertificatePreview] = useState(null);
 
   // Tab resolution: URL takes precedence, fallback to initialTab, then 'dashboard'
   const path = location.pathname;
@@ -620,6 +621,41 @@ export default function RecipientDashboard({ initialTab }) {
             </div>
           )}
 
+          {certificatePreview && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#22211E]/55 p-4">
+              <div className="w-full max-w-4xl rounded-2xl border border-[#D7D2C7] bg-[#F8F5EE] shadow-2xl overflow-hidden">
+                <div className="flex items-center justify-between border-b border-[#D7D2C7] px-4 py-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Donor verification</p>
+                    <h3 className="text-base font-bold text-[#22211E] mt-1">{certificatePreview.name}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCertificatePreview(null)}
+                    className="p-2 rounded-lg hover:bg-[#F3EFE7] text-[#22211E] cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="p-4 bg-white">
+                  {certificatePreview.type === 'application/pdf' ? (
+                    <iframe
+                      title="FSSAI certificate preview"
+                      src={certificatePreview.dataUrl}
+                      className="w-full h-[70vh] rounded-xl border border-[#D7D2C7]"
+                    />
+                  ) : (
+                    <img
+                      src={certificatePreview.dataUrl}
+                      alt="FSSAI certificate"
+                      className="max-h-[70vh] w-full object-contain rounded-xl border border-[#D7D2C7]"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'settings' ? (
             /* CAPACITY & FOOD PREFERENCES PAGE (MATCHING SCREENSHOT) */
             <div className="space-y-3.5 pb-6">
@@ -1001,6 +1037,9 @@ export default function RecipientDashboard({ initialTab }) {
                               Quantity: <strong className="text-[#22211E]">{offer.quantity} {offer.unit}</strong>
                               {offer.weight_kg && ` (~${offer.weight_kg} kg)`}
                             </p>
+                            <div className="mt-3 rounded-xl bg-[#E8EED2] border border-[#D2DDB5] px-3 py-2 text-[11px] font-bold text-[#4D553C]">
+                              {offer.donor_name ? `Donor → ${offer.donor_name} → ${profile?.org_name || 'Your shelter'}` : 'Donor → Verified source → Your shelter'}
+                            </div>
 
                             <div className="grid grid-cols-2 gap-2 mt-4 text-xs bg-[#FAF7F1] p-3 rounded-xl border border-[#D7D2C7]">
                               <div>
@@ -1090,61 +1129,114 @@ export default function RecipientDashboard({ initialTab }) {
                 </div>
               </div>
 
-              {/* 4 KPI Summary Cards (Required by Section 6) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Available Offers Card */}
-                <div
-                  onClick={() => navigate('/recipient/offers')}
-                  className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7] cursor-pointer hover:border-[#5F684B] transition-all">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Available Offers</span>
-                    <Inbox size={17} className="text-[#5F684B]" />
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+                <div className="xl:col-span-8 rounded-2xl overflow-hidden border border-[#D7D2C7] bg-[#F8F5EE] shadow-xs">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#D7D2C7] bg-[#F3EFE7]">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Shelter Map</p>
+                      <h3 className="text-lg font-bold text-[#22211E] mt-1">Active Supply Coverage</h3>
+                    </div>
+                    <button
+                      onClick={() => navigate('/recipient/offers')}
+                      className="px-3 py-1.5 rounded-lg border border-[#D7D2C7] bg-white text-[11px] font-semibold text-[#22211E] hover:bg-[#F3EFE7]">
+                      Review offers
+                    </button>
                   </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-3xl font-extrabold text-[#22211E]">
-                      {dashboardStats?.stats?.available_offers ?? offers.length}
-                    </span>
-                    <span className="text-xs text-[#5F684B] font-semibold flex items-center gap-0.5">
-                      View Offers <ArrowRight size={12} />
-                    </span>
+                  <div className="relative h-[420px] w-full bg-[#EAE6DE]">
+                    <iframe
+                      title="Recipient food map"
+                      src="/map/map.html"
+                      className="h-full w-full border-0"
+                    />
+                    <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-2xl border border-[#D7D2C7] bg-[#F8F5EE]/92 backdrop-blur-sm p-3 shadow-sm">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Supply chain</div>
+                      <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-[#22211E] flex-wrap">
+                        <span className="rounded-full bg-[#E8EED2] px-2 py-1 text-[#4D553C]">Donor</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#EAF4F5] px-2 py-1 text-[#2F5D68]">Shelter</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#F3EFE7] px-2 py-1 text-[#4D553C]">Driver</span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Pending allocation batches</p>
                 </div>
 
-                {/* Accepted Donations Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Accepted Donations</span>
-                    <Package size={17} className="text-[#5F684B]" />
-                  </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {dashboardStats?.stats?.accepted_donations ?? 0}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Approved & in pipeline</p>
-                </div>
+                <div className="xl:col-span-4 card-warm rounded-2xl border border-[#D7D2C7] overflow-hidden shadow-xs">
+                  <div className="divide-y divide-[#D7D2C7]">
+                    <div
+                      onClick={() => navigate('/recipient/offers')}
+                      className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer hover:bg-[#F3EFE7] transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Inbox size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Available Offers</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.available_offers ?? offers.length}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Pending</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">allocation</p>
+                      </div>
+                    </div>
 
-                {/* Incoming Deliveries Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Incoming Deliveries</span>
-                    <Truck size={17} className="text-[#5F684B]" />
-                  </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {dashboardStats?.stats?.incoming_deliveries ?? 0}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Couriers on the way</p>
-                </div>
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Package size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Accepted Donations</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.accepted_donations ?? 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Approved</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">pipeline</p>
+                      </div>
+                    </div>
 
-                {/* Received Today Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Received Today</span>
-                    <CheckCircle2 size={17} className="text-[#5F684B]" />
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <Truck size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Incoming Deliveries</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.incoming_deliveries ?? 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Couriers</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">en route</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Received Today</div>
+                          <div className="mt-1">
+                            <span className="text-2xl font-black text-[#22211E] leading-none">{dashboardStats?.stats?.received_today ?? 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[11px] text-[#6F6C64] font-medium">Meals</p>
+                        <p className="text-[11px] text-[#6F6C64] mt-1">delivered</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {dashboardStats?.stats?.received_today ?? 0}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Meals safely delivered</p>
                 </div>
               </div>
 

@@ -20,11 +20,34 @@ const router = express.Router();
  */
 router.post('/', authenticateToken, requireRole('donor'), async (req, res) => {
   try {
-    const { food_description, food_type, quantity, unit, pickup_address, expiry_window_end } = req.body;
+    const {
+      food_description,
+      food_type,
+      quantity,
+      unit,
+      pickup_address,
+      expiry_window_end,
+      fssai_certificate_name,
+      fssai_certificate_type,
+      fssai_certificate_data_url
+    } = req.body;
 
     // --- Validate required fields ---
     if (!food_description || !food_type || quantity == null || !unit || !pickup_address || !expiry_window_end) {
       return res.status(400).json({ error: 'All fields are required: food_description, food_type, quantity, unit, pickup_address, expiry_window_end' });
+    }
+
+    if (fssai_certificate_data_url || fssai_certificate_name || fssai_certificate_type) {
+      const hasValidName = typeof fssai_certificate_name === 'string' && fssai_certificate_name.trim().length > 0;
+      const hasValidData = typeof fssai_certificate_data_url === 'string' && fssai_certificate_data_url.startsWith('data:');
+      const hasValidType = typeof fssai_certificate_type === 'string' && (
+        fssai_certificate_type === 'application/pdf' ||
+        fssai_certificate_type.startsWith('image/')
+      );
+
+      if (!hasValidName || !hasValidData || !hasValidType) {
+        return res.status(400).json({ error: 'FSSAI certificate must include a valid PDF or image file.' });
+      }
     }
 
     // Validate food_type enum
@@ -90,12 +113,16 @@ router.post('/', authenticateToken, requireRole('donor'), async (req, res) => {
     // --- Insert donation with status 'posted' ---
     const result = await pool.query(
       `INSERT INTO donations (donor_id, food_description, food_type, quantity, unit, weight_kg,
-         pickup_location, pickup_address, expiry_window_end, status)
+         pickup_location, pickup_address, expiry_window_end, status,
+         fssai_certificate_name, fssai_certificate_type, fssai_certificate_data_url)
        VALUES ($1, $2, $3, $4, $5, $6,
-         ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography, $9, $10, 'posted')
+         ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography, $9, $10, 'posted', $11, $12, $13)
        RETURNING *`,
       [req.user.profileId, food_description, food_type, quantity, unit, weight_kg,
-       lng, lat, pickup_address, expiryDate.toISOString()]
+       lng, lat, pickup_address, expiryDate.toISOString(),
+       fssai_certificate_name || null,
+       fssai_certificate_type || null,
+       fssai_certificate_data_url || null]
     );
 
     const donation = result.rows[0];
@@ -120,7 +147,10 @@ router.post('/', authenticateToken, requireRole('donor'), async (req, res) => {
         pickup_address: donation.pickup_address,
         status: donation.status,
         posted_at: donation.posted_at,
-        expiry_window_end: donation.expiry_window_end
+        expiry_window_end: donation.expiry_window_end,
+        fssai_certificate_name: donation.fssai_certificate_name || null,
+        fssai_certificate_type: donation.fssai_certificate_type || null,
+        fssai_certificate_data_url: donation.fssai_certificate_data_url || null
       }
     });
   } catch (err) {
@@ -136,14 +166,23 @@ router.post('/', authenticateToken, requireRole('donor'), async (req, res) => {
 router.get('/mine', authenticateToken, requireRole('donor'), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, food_description, food_type, quantity, unit, weight_kg,
-              pickup_address, status, posted_at, expiry_window_end,
-              matched_recipient_id, matched_driver_id,
-              (SELECT name FROM drivers WHERE id = donations.matched_driver_id) AS driver_name,
-              (SELECT ROUND(AVG(f.rating), 2) FROM feedback f WHERE f.driver_id = donations.matched_driver_id) AS driver_rating
-       FROM donations
-       WHERE donor_id = $1
-       ORDER BY posted_at DESC`,
+      `SELECT d.id, d.food_description, d.food_type, d.quantity, d.unit, d.weight_kg,
+              d.pickup_address, d.status, d.posted_at, d.expiry_window_end,
+              d.matched_recipient_id, d.matched_driver_id,
+              d.fssai_certificate_name, d.fssai_certificate_type, d.fssai_certificate_data_url,
+              r.org_name AS recipient_name,
+              dr.name AS driver_name,
+              (SELECT ROUND(AVG(f.rating), 2) FROM feedback f WHERE f.driver_id = d.matched_driver_id) AS driver_rating,
+              CASE
+                WHEN d.matched_recipient_id IS NOT NULL AND d.matched_driver_id IS NOT NULL THEN 'Donor → Recipient → Driver'
+                WHEN d.matched_recipient_id IS NOT NULL THEN 'Donor → Recipient'
+                ELSE 'Donor → Pending match'
+              END AS connection_status
+       FROM donations d
+       LEFT JOIN recipients r ON r.id = d.matched_recipient_id
+       LEFT JOIN drivers dr ON dr.id = d.matched_driver_id
+       WHERE d.donor_id = $1
+       ORDER BY d.posted_at DESC`,
       [req.user.profileId]
     );
 
@@ -214,6 +253,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       `SELECT id, donor_id, food_description, food_type, quantity, unit, weight_kg,
               pickup_address, status, posted_at, expiry_window_end,
               matched_recipient_id, matched_driver_id,
+              fssai_certificate_name, fssai_certificate_type, fssai_certificate_data_url,
               ST_Y(pickup_location::geometry) AS lat,
               ST_X(pickup_location::geometry) AS lng
        FROM donations

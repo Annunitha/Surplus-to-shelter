@@ -13,10 +13,20 @@ export async function apiRequest(path, options = {}) {
     headers,
   });
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Request failed');
+  const text = await res.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      data = { error: 'Unexpected server response', raw: text.slice(0, 500) };
+    }
   }
+
+  if (!res.ok) {
+    throw new Error(data?.error || 'Request failed');
+  }
+
   return data;
 }
 

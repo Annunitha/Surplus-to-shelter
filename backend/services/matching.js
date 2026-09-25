@@ -22,6 +22,25 @@ function emitEvent(eventName, payload) {
   }
 }
 
+async function upsertDonationConnection({ donationId, donorId, recipientId, driverId = null, status = 'matched' }) {
+  if (!donationId || !donorId) return null;
+
+  const connectionId = require('crypto').randomUUID();
+  await pool.query(
+    `INSERT INTO donation_connections (id, donation_id, donor_id, recipient_id, driver_id, connection_status, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, datetime('now'), datetime('now'))
+     ON CONFLICT(donation_id) DO UPDATE SET
+       donor_id = excluded.donor_id,
+       recipient_id = excluded.recipient_id,
+       driver_id = excluded.driver_id,
+       connection_status = excluded.connection_status,
+       updated_at = datetime('now')`,
+    [connectionId, donationId, donorId, recipientId || null, driverId || null, status]
+  );
+
+  return { donationId, donorId, recipientId, driverId, status };
+}
+
 /**
  * ARCHITECTURE.md §4: Matching Algorithm
  * 
@@ -220,7 +239,7 @@ async function acceptOffer(donationId, recipientId) {
 
     // Verify the donation is still open. The transaction makes the first acceptance win.
     const donRes = await client.query(
-      `SELECT id, weight_kg, quantity, status, expiry_window_end
+      `SELECT id, donor_id, weight_kg, quantity, status, expiry_window_end
        FROM donations
        WHERE id = $1 AND status = 'posted'
       `,
@@ -232,6 +251,14 @@ async function acceptOffer(donationId, recipientId) {
     }
 
     const donation = donRes.rows[0];
+
+    await upsertDonationConnection({
+      donationId,
+      donorId: donation.donor_id,
+      recipientId,
+      driverId: null,
+      status: 'matched'
+    });
 
     // NFR-3 verification
     if (new Date(donation.expiry_window_end) <= new Date()) {

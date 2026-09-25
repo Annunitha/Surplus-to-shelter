@@ -414,7 +414,7 @@ export default function DriverDashboard() {
                       Open route
                     </button>
                   </div>
-                  <div className="h-[420px] w-full bg-[#EAE6DE]">
+                  <div className="relative h-[420px] w-full bg-[#EAE6DE]">
                     <iframe
                       title="Driver route map"
                       src={
@@ -427,6 +427,16 @@ export default function DriverDashboard() {
                       }
                       className="h-full w-full border-0"
                     />
+                    <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-2xl border border-[#D7D2C7] bg-[#F8F5EE]/92 backdrop-blur-sm p-3 shadow-sm">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Mission chain</div>
+                      <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-[#22211E] flex-wrap">
+                        <span className="rounded-full bg-[#E8EED2] px-2 py-1 text-[#4D553C]">Donor</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#EAF4F5] px-2 py-1 text-[#2F5D68]">Recipient</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#F3EFE7] px-2 py-1 text-[#4D553C]">You</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -554,6 +564,11 @@ export default function DriverDashboard() {
                     <p className="text-xs text-[#4D553C]">
                       From: <strong className="text-[#22211E]">{mission.pickup.org_name}</strong> → To: <strong className="text-[#22211E]">{mission.dropoff.org_name}</strong>
                     </p>
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#F3EFE7] border border-[#D7D2C7] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#4D553C]">
+                      <span>Donor → Recipient → Driver</span>
+                      <ArrowRight size={12} />
+                      <span>{mission.pickup.org_name} → {mission.dropoff.org_name} → You</span>
+                    </div>
                   </div>
                   <button
                     onClick={() => navigate('/driver/assignment')}

@@ -129,6 +129,20 @@ export default function DonorDashboard({ initialTab }) {
     return `Expires in ${hrs}h ${mins}m`;
   }
 
+  function connectionSummary(donation) {
+    if (!donation) return 'Donor → Pending match';
+    const recipient = donation.recipient_name || 'Recipient';
+    const driver = donation.driver_name || 'Awaiting driver';
+
+    if (donation.matched_recipient_id && donation.matched_driver_id) {
+      return `Donor → ${recipient} → ${driver}`;
+    }
+    if (donation.matched_recipient_id) {
+      return `Donor → ${recipient}`;
+    }
+    return 'Donor → Pending match';
+  }
+
   function exportCSV() {
     if (donations.length === 0) return alert('No donations to export.');
     const headers = ['ID', 'Description', 'Type', 'Quantity', 'Unit', 'Status', 'Posted At', 'Expiry'];
@@ -250,12 +264,22 @@ export default function DonorDashboard({ initialTab }) {
                       View manifests
                     </button>
                   </div>
-                  <div className="h-[420px] w-full bg-[#EAE6DE]">
+                  <div className="relative h-[420px] w-full bg-[#EAE6DE]">
                     <iframe
                       title="Donor logistics map"
                       src="/map/map.html"
                       className="h-full w-full border-0"
                     />
+                    <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-2xl border border-[#D7D2C7] bg-[#F8F5EE]/92 backdrop-blur-sm p-3 shadow-sm">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Donation chain</div>
+                      <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-[#22211E] flex-wrap">
+                        <span className="rounded-full bg-[#E8EED2] px-2 py-1 text-[#4D553C]">Donor</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#EAF4F5] px-2 py-1 text-[#2F5D68]">Recipient</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#F3EFE7] px-2 py-1 text-[#4D553C]">Driver</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -213,9 +213,11 @@ router.get('/me/offers', authenticateToken, requireRole('recipient'), async (req
       SELECT d.id, d.food_description, d.food_type, d.quantity, d.unit, d.weight_kg,
              d.pickup_address, d.posted_at, d.expiry_window_end, d.status,
              d.fssai_certificate_name, d.fssai_certificate_type, d.fssai_certificate_data_url,
+             dn.org_name AS donor_name,
              (ST_Distance(r.location, d.pickup_location) / 1000.0) AS distance_km
       FROM donations d
       JOIN recipients r ON r.id = $1
+      JOIN donors dn ON dn.id = d.donor_id
       WHERE d.status = 'posted'
         AND d.expiry_window_end > $2
         AND r.capacity_current < r.capacity_max
@@ -245,6 +247,8 @@ router.get('/me/offers', authenticateToken, requireRole('recipient'), async (req
         unit: row.unit,
         weight_kg: parseFloat(row.weight_kg),
         pickup_address: row.pickup_address,
+        donor_name: row.donor_name || 'Verified donor',
+        donor_chain: `Donor → ${row.donor_name || 'Verified donor'} → Your shelter`,
         distance_km: row.distance_km ? parseFloat(parseFloat(row.distance_km).toFixed(2)) : null,
         posted_at: row.posted_at,
         expiry_window_end: row.expiry_window_end,

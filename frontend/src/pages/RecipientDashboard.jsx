@@ -1007,6 +1007,9 @@ export default function RecipientDashboard({ initialTab }) {
                               Quantity: <strong className="text-[#22211E]">{offer.quantity} {offer.unit}</strong>
                               {offer.weight_kg && ` (~${offer.weight_kg} kg)`}
                             </p>
+                            <div className="mt-3 rounded-xl bg-[#E8EED2] border border-[#D2DDB5] px-3 py-2 text-[11px] font-bold text-[#4D553C]">
+                              {offer.donor_name ? `Donor → ${offer.donor_name} → ${profile?.org_name || 'Your shelter'}` : 'Donor → Verified source → Your shelter'}
+                            </div>
 
                             <div className="grid grid-cols-2 gap-2 mt-4 text-xs bg-[#FAF7F1] p-3 rounded-xl border border-[#D7D2C7]">
                               <div>
@@ -1106,12 +1109,22 @@ export default function RecipientDashboard({ initialTab }) {
                       Review offers
                     </button>
                   </div>
-                  <div className="h-[420px] w-full bg-[#EAE6DE]">
+                  <div className="relative h-[420px] w-full bg-[#EAE6DE]">
                     <iframe
                       title="Recipient food map"
                       src="/map/map.html"
                       className="h-full w-full border-0"
                     />
+                    <div className="pointer-events-none absolute left-4 bottom-4 z-10 rounded-2xl border border-[#D7D2C7] bg-[#F8F5EE]/92 backdrop-blur-sm p-3 shadow-sm">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Supply chain</div>
+                      <div className="mt-2 flex items-center gap-2 text-[11px] font-bold text-[#22211E] flex-wrap">
+                        <span className="rounded-full bg-[#E8EED2] px-2 py-1 text-[#4D553C]">Donor</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#EAF4F5] px-2 py-1 text-[#2F5D68]">Shelter</span>
+                        <ArrowRight size={12} className="text-[#5F684B]" />
+                        <span className="rounded-full bg-[#F3EFE7] px-2 py-1 text-[#4D553C]">Driver</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

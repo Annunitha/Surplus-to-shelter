@@ -166,15 +166,23 @@ router.post('/', authenticateToken, requireRole('donor'), async (req, res) => {
 router.get('/mine', authenticateToken, requireRole('donor'), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, food_description, food_type, quantity, unit, weight_kg,
-              pickup_address, status, posted_at, expiry_window_end,
-              matched_recipient_id, matched_driver_id,
-              fssai_certificate_name, fssai_certificate_type, fssai_certificate_data_url,
-              (SELECT name FROM drivers WHERE id = donations.matched_driver_id) AS driver_name,
-              (SELECT ROUND(AVG(f.rating), 2) FROM feedback f WHERE f.driver_id = donations.matched_driver_id) AS driver_rating
-       FROM donations
-       WHERE donor_id = $1
-       ORDER BY posted_at DESC`,
+      `SELECT d.id, d.food_description, d.food_type, d.quantity, d.unit, d.weight_kg,
+              d.pickup_address, d.status, d.posted_at, d.expiry_window_end,
+              d.matched_recipient_id, d.matched_driver_id,
+              d.fssai_certificate_name, d.fssai_certificate_type, d.fssai_certificate_data_url,
+              r.org_name AS recipient_name,
+              dr.name AS driver_name,
+              (SELECT ROUND(AVG(f.rating), 2) FROM feedback f WHERE f.driver_id = d.matched_driver_id) AS driver_rating,
+              CASE
+                WHEN d.matched_recipient_id IS NOT NULL AND d.matched_driver_id IS NOT NULL THEN 'Donor → Recipient → Driver'
+                WHEN d.matched_recipient_id IS NOT NULL THEN 'Donor → Recipient'
+                ELSE 'Donor → Pending match'
+              END AS connection_status
+       FROM donations d
+       LEFT JOIN recipients r ON r.id = d.matched_recipient_id
+       LEFT JOIN drivers dr ON dr.id = d.matched_driver_id
+       WHERE d.donor_id = $1
+       ORDER BY d.posted_at DESC`,
       [req.user.profileId]
     );
 

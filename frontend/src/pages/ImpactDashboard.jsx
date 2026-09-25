@@ -22,7 +22,6 @@ export default function ImpactDashboard() {
   const [summary, setSummary] = useState({
     total_meals_rescued: 0,
     total_food_diverted_kg: 0,
-    total_co2e_avoided_kg: 0,
     total_deliveries: 0,
     active_pipeline: {
       posted: 0,
@@ -106,8 +105,7 @@ export default function ImpactDashboard() {
           }
         });
 
-        // 2.5 kg CO2e avoided per kg food rescued standard
-        const totalCo2 = Math.round(totalWeightKg * 2.5);
+        
 
         const recent = donations.slice(0, 10).map(d => ({
           id: d.id,
@@ -123,7 +121,6 @@ export default function ImpactDashboard() {
           setSummary({
             total_meals_rescued: totalMeals,
             total_food_diverted_kg: Math.round(totalWeightKg),
-            total_co2e_avoided_kg: totalCo2,
             total_deliveries: totalDeliveries,
             active_pipeline: pipeline,
             recent_rescues: recent
@@ -151,7 +148,6 @@ export default function ImpactDashboard() {
         setSummary({
           total_meals_rescued: s.total_meals_rescued ?? s.total_meals ?? 0,
           total_food_diverted_kg: s.total_food_diverted_kg ?? s.total_weight_kg ?? 0,
-          total_co2e_avoided_kg: s.total_co2e_avoided_kg ?? 0,
           total_deliveries: s.total_deliveries ?? 0,
           active_pipeline: pipeline,
           recent_rescues: Array.isArray(s.recent_rescues) ? s.recent_rescues : []
@@ -168,7 +164,6 @@ export default function ImpactDashboard() {
   const {
     total_meals_rescued = 0,
     total_food_diverted_kg = 0,
-    total_co2e_avoided_kg = 0,
     total_deliveries = 0,
     active_pipeline = { posted: 0, matched: 0, in_transit: 0, delivered: 0 },
     recent_rescues = []
@@ -277,19 +272,17 @@ export default function ImpactDashboard() {
             </p>
           </div>
 
-          {/* CO2e Avoided (kg) */}
+      
           <div className="card-warm rounded-2xl p-6 sm:p-8 shadow-xs hover:shadow-md transition">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-bold uppercase tracking-wider text-[#6F6C64]">
-                CO2e Avoided (kg)
+               
               </span>
               <div className="w-10 h-10 rounded-xl bg-[#E8EED2] text-[#5F684B] flex items-center justify-center">
                 <Cloud size={20} strokeWidth={2.2} />
               </div>
             </div>
-            <div className="text-4xl sm:text-5xl font-extrabold tracking-tight text-[#22211E] mb-3">
-              {Number(total_co2e_avoided_kg).toLocaleString()} kg
-            </div>
+           
             <p className="text-xs text-[#6F6C64] leading-relaxed border-t border-[#D7D2C7] pt-3">
               Prevented methane & greenhouse gas emissions from organic landfill decomposition.
             </p>
@@ -404,7 +397,6 @@ export default function ImpactDashboard() {
                     <th className="py-2.5 px-4">Item Description</th>
                     <th className="py-2.5 px-4">Net Weight</th>
                     <th className="py-2.5 px-4">Meals Yield</th>
-                    <th className="py-2.5 px-4">CO2e Offset</th>
                     <th className="py-2.5 px-4 text-right">Delivered Timestamp</th>
                   </tr>
                 </thead>
@@ -414,7 +406,6 @@ export default function ImpactDashboard() {
                       <td className="py-3 px-4 font-bold text-[#22211E]">{r.food_description}</td>
                       <td className="py-3 px-4 font-semibold text-[#22211E]">{parseFloat(r.weight_kg).toFixed(1)} kg</td>
                       <td className="py-3 px-4 font-bold text-[#5F684B]">~{Math.round(r.meals_rescued ?? r.meals ?? (parseFloat(r.weight_kg) * 1.83))} meals</td>
-                      <td className="py-3 px-4 font-semibold text-[#6F6C64]">{parseFloat(r.co2e_avoided_kg || 0).toFixed(1)} kg</td>
                       <td className="py-3 px-4 text-right text-[#99958B]">
                         {new Date(r.logged_at || r.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>

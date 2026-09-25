@@ -401,65 +401,113 @@ export default function DriverDashboard() {
                 </div>
               </div>
 
-              {/* 4 DRIVER METRIC CARDS */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* 1. Active Mission Card */}
-                <div
-                  onClick={() => navigate('/driver/assignment')}
-                  className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7] cursor-pointer hover:border-[#5F684B] transition-all">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Active Mission</span>
-                    <Route size={17} className="text-[#5F684B]" />
+              {/* TOP METRICS STACKED VERTICALLY WITH HORIZONTAL DETAIL LAYOUT */}
+              <div className="card-warm rounded-2xl border border-[#D7D2C7] overflow-hidden shadow-xs">
+                <div className="divide-y divide-[#D7D2C7]">
+                  <div
+                    onClick={() => navigate('/driver/assignment')}
+                    className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer hover:bg-[#F3EFE7] transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                        <Route size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Active Mission</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-[#22211E] leading-none">{hasAssignment ? '1' : '0'}</span>
+                          <span className="text-xs font-semibold text-[#5F684B]">{hasAssignment ? 'View route' : 'Standby'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right min-w-0">
+                      <p className="text-[11px] text-[#6F6C64] font-medium">
+                        {hasAssignment ? 'In progress' : 'Ready for dispatch'}
+                      </p>
+                      <p className="text-[11px] text-[#6F6C64] mt-1 truncate max-w-[260px]">
+                        {hasAssignment ? mission.food_description : 'Standby • Ready for dispatch'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-3xl font-extrabold text-[#22211E]">
-                      {hasAssignment ? '1 Active' : '0'}
-                    </span>
-                    <span className="text-xs text-[#5F684B] font-semibold flex items-center gap-0.5">
-                      {hasAssignment ? 'View Route' : 'Standby'} <ArrowRight size={12} />
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1 truncate">
-                    {hasAssignment ? mission.food_description : 'Standby • Ready for dispatch'}
-                  </p>
-                </div>
 
-                {/* 2. Completed Rescues Card */}
-                <div
-                  onClick={() => navigate('/driver/donations')}
-                  className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7] cursor-pointer hover:border-[#5F684B] transition-all">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Completed Rescues</span>
-                    <CheckCircle2 size={17} className="text-[#5F684B]" />
+                  <div
+                    onClick={() => navigate('/driver/donations')}
+                    className="flex items-center justify-between gap-4 px-5 py-4 cursor-pointer hover:bg-[#F3EFE7] transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                        <CheckCircle2 size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Completed Rescues</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-[#22211E] leading-none">{completedDeliveries.length}</span>
+                          <span className="text-xs font-semibold text-[#5F684B]">Delivered</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right min-w-0">
+                      <p className="text-[11px] text-[#6F6C64] font-medium">Successfully delivered</p>
+                      <p className="text-[11px] text-[#6F6C64] mt-1">to shelters</p>
+                    </div>
                   </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {completedDeliveries.length}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Successfully delivered to shelters</p>
-                </div>
 
-                {/* 3. Food Delivered Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Food Transported</span>
-                    <Package size={17} className="text-[#5F684B]" />
+                  <div className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                        <Package size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Food Transported</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-[#22211E] leading-none">
+                            {totalWeightKg > 0 ? `${totalWeightKg.toFixed(1)} kg` : `${totalPortions} meals`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right min-w-0">
+                      <p className="text-[11px] text-[#6F6C64] font-medium">~{totalPortions} meal portions</p>
+                      <p className="text-[11px] text-[#6F6C64] mt-1">delivered</p>
+                    </div>
                   </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    {totalWeightKg > 0 ? `${totalWeightKg.toFixed(1)} kg` : `${totalPortions} meals`}
-                  </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">~{totalPortions} meal portions delivered</p>
-                </div>
 
-                {/* 4. Active Dispatch Zone Card */}
-                <div className="card-warm rounded-2xl p-5 shadow-xs border border-[#D7D2C7]">
-                  <div className="flex items-center justify-between text-xs text-[#6F6C64] mb-2 font-semibold">
-                    <span className="uppercase tracking-wider">Dispatch Radius</span>
-                    <Radio size={17} className="text-[#5F684B]" />
+                  <div className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                        <Radio size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Dispatch Radius</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-[#22211E] leading-none">8.0 km</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right min-w-0">
+                      <p className="text-[11px] text-[#6F6C64] font-medium">Zone</p>
+                      <p className="text-[11px] text-[#6F6C64] mt-1">Central Delhi NCR</p>
+                    </div>
                   </div>
-                  <div className="text-3xl font-extrabold text-[#22211E]">
-                    8.0 km
+
+                  <div className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-[#E8EED2] text-[#5F684B] flex items-center justify-center shrink-0">
+                        <Truck size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Fleet Status</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-[#22211E] leading-none">
+                            {hasAssignment ? 'On Route' : 'Standby'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right min-w-0">
+                      <p className="text-[11px] text-[#6F6C64] font-medium">
+                        {hasAssignment ? 'Mission in progress' : 'Ready for auto-dispatch'}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#6F6C64] mt-1">Zone: Central Delhi NCR</p>
                 </div>
               </div>
 

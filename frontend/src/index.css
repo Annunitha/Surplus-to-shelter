@@ -45,6 +45,37 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(95, 104, 75, 0.03);
 }
 
+.grid-hero-thirds {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr;
+  gap: 1rem;
+}
+
+.grid-hero {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.chart-wrapper {
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (max-width: 980px) {
+  .grid-hero-thirds {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-hero {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+}
+
 .card-cream {
   background-color: #F3EFE7;
   border: 1px solid #D7D2C7;

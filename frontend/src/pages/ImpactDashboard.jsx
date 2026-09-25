@@ -38,23 +38,34 @@ export default function ImpactDashboard() {
   useEffect(() => {
     fetchSummary();
 
-    // 1. Supabase Real-Time Channel for Global Impact
-    const channel = supabase
-      .channel('public-impact-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'donations'
-        },
-        () => {
-          fetchSummary();
-        }
-      )
-      .subscribe();
+    if (supabase) {
+      const channel = supabase
+        .channel('public-impact-realtime')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'donations'
+          },
+          () => {
+            fetchSummary();
+          }
+        )
+        .subscribe();
 
-    // 2. WebSocket listener fallback
+      const socket = getSocket();
+      function handleStatusChanged() {
+        fetchSummary();
+      }
+
+      socket.on('donation:status_changed', handleStatusChanged);
+      return () => {
+        supabase.removeChannel(channel);
+        socket.off('donation:status_changed', handleStatusChanged);
+      };
+    }
+
     const socket = getSocket();
     function handleStatusChanged() {
       fetchSummary();
@@ -62,24 +73,23 @@ export default function ImpactDashboard() {
 
     socket.on('donation:status_changed', handleStatusChanged);
     return () => {
-      supabase.removeChannel(channel);
       socket.off('donation:status_changed', handleStatusChanged);
     };
   }, []);
 
   async function fetchSummary() {
-    try {
-      // 1. Direct Supabase query for donations
-      const { data: donations, error } = await supabase
-        .from('donations')
-        .select('id, quantity, unit, weight_kg, status, posted_at, food_description, donors:donor_id(org_name), recipients:matched_recipient_id(org_name)')
-        .order('posted_at', { ascending: false });
+    if (supabase) {
+      try {
+        const { data: donations, error } = await supabase
+          .from('donations')
+          .select('id, quantity, unit, weight_kg, status, posted_at, food_description, donors:donor_id(org_name), recipients:matched_recipient_id(org_name)')
+          .order('posted_at', { ascending: false });
 
-      if (!error && Array.isArray(donations)) {
-        let totalMeals = 0;
-        let totalWeightKg = 0;
-        let totalDeliveries = 0;
-        const pipeline = { posted: 0, matched: 0, in_transit: 0, delivered: 0 };
+        if (!error && Array.isArray(donations)) {
+          let totalMeals = 0;
+          let totalWeightKg = 0;
+          let totalDeliveries = 0;
+          const pipeline = { posted: 0, matched: 0, in_transit: 0, delivered: 0 };
 
         donations.forEach(d => {
           const qty = Number(d.quantity) || 0;
@@ -110,20 +120,21 @@ export default function ImpactDashboard() {
           created_at: d.posted_at
         }));
 
-        setSummary({
-          total_meals_rescued: totalMeals,
-          total_food_diverted_kg: Math.round(totalWeightKg),
-          total_co2e_avoided_kg: totalCo2,
-          total_deliveries: totalDeliveries,
-          active_pipeline: pipeline,
-          recent_rescues: recent
-        });
-        setLastUpdated('Updated just now');
-        setLoading(false);
-        return;
+          setSummary({
+            total_meals_rescued: totalMeals,
+            total_food_diverted_kg: Math.round(totalWeightKg),
+            total_co2e_avoided_kg: totalCo2,
+            total_deliveries: totalDeliveries,
+            active_pipeline: pipeline,
+            recent_rescues: recent
+          });
+          setLastUpdated('Updated just now');
+          setLoading(false);
+          return;
+        }
+      } catch (supabaseErr) {
+        console.warn('Supabase direct impact query failed, using API:', supabaseErr);
       }
-    } catch (supabaseErr) {
-      console.warn('Supabase direct impact query failed, using API:', supabaseErr);
     }
 
     try {

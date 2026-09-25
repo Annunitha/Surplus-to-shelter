@@ -93,53 +93,55 @@ export default function RecipientDashboard({ initialTab }) {
     }
     loadData();
 
-    // 1. Supabase Real-Time Channel Subscription
     const profileId = user.profileId;
-    const channel = supabase
-      .channel(`recipient-realtime-${profileId || 'global'}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'donations',
-          ...(profileId ? { filter: `matched_recipient_id=eq.${profileId}` } : {})
-        },
-        payload => {
-          console.log('Realtime Supabase donation update received:', payload);
-          if (payload.eventType === 'INSERT') {
-            setNotification({
-              type: 'info',
-              message: `🍲 New surplus food offer: ${payload.new.food_description || 'Surplus Batch'} (${payload.new.quantity || ''} ${payload.new.unit || ''})`
-            });
+    let channel = null;
+
+    if (supabase) {
+      channel = supabase
+        .channel(`recipient-realtime-${profileId || 'global'}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'donations',
+            ...(profileId ? { filter: `matched_recipient_id=eq.${profileId}` } : {})
+          },
+          payload => {
+            console.log('Realtime Supabase donation update received:', payload);
+            if (payload.eventType === 'INSERT') {
+              setNotification({
+                type: 'info',
+                message: `🍲 New surplus food offer: ${payload.new.food_description || 'Surplus Batch'} (${payload.new.quantity || ''} ${payload.new.unit || ''})`
+              });
+            }
+            fetchOffers();
+            fetchDashboardStats();
           }
-          fetchOffers();
-          fetchDashboardStats();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'recipients',
-          ...(profileId ? { filter: `id=eq.${profileId}` } : {})
-        },
-        payload => {
-          console.log('Realtime Supabase recipient update received:', payload);
-          if (payload.new) {
-            setProfile(payload.new);
-            setCurrentCapacity(String(payload.new.capacity_current ?? 0));
-            setMaxCapacity(String(payload.new.capacity_max ?? 0));
-            if (payload.new.accepted_food_types) {
-              setSelectedFoodTypes(payload.new.accepted_food_types);
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'recipients',
+            ...(profileId ? { filter: `id=eq.${profileId}` } : {})
+          },
+          payload => {
+            console.log('Realtime Supabase recipient update received:', payload);
+            if (payload.new) {
+              setProfile(payload.new);
+              setCurrentCapacity(String(payload.new.capacity_current ?? 0));
+              setMaxCapacity(String(payload.new.capacity_max ?? 0));
+              if (payload.new.accepted_food_types) {
+                setSelectedFoodTypes(payload.new.accepted_food_types);
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    }
 
-    // 2. WebSocket fallback handlers
     const socket = getSocket();
     function handleNewOffer(offer) {
       setNotification({
@@ -172,7 +174,9 @@ export default function RecipientDashboard({ initialTab }) {
     }, 1000);
 
     return () => {
-      supabase.removeChannel(channel);
+      if (supabase && channel) {
+        supabase.removeChannel(channel);
+      }
       socket.off('offer:new', handleNewOffer);
       socket.off('donation:status_changed', handleStatusChanged);
       clearInterval(interval);
@@ -187,91 +191,87 @@ export default function RecipientDashboard({ initialTab }) {
 
   async function fetchDashboardStats(currentProfileId = user?.profileId) {
     if (!currentProfileId) return;
-    try {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+    if (supabase) {
+      try {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
 
-      // Available Offers query
-      const availableQuery = supabase
-        .from('donations')
-        .select('id', { count: 'exact' })
-        .eq('matched_recipient_id', currentProfileId)
-        .eq('status', 'posted')
-        .gt('expiry_window_end', new Date().toISOString());
+        const availableQuery = supabase
+          .from('donations')
+          .select('id', { count: 'exact' })
+          .eq('matched_recipient_id', currentProfileId)
+          .eq('status', 'posted')
+          .gt('expiry_window_end', new Date().toISOString());
 
-      // Accepted Donations query
-      const acceptedQuery = supabase
-        .from('donations')
-        .select('id', { count: 'exact' })
-        .eq('matched_recipient_id', currentProfileId)
-        .in('status', ['matched', 'picked_up', 'in_transit']);
+        const acceptedQuery = supabase
+          .from('donations')
+          .select('id', { count: 'exact' })
+          .eq('matched_recipient_id', currentProfileId)
+          .in('status', ['matched', 'picked_up', 'in_transit']);
 
-      // Incoming Deliveries query
-      const incomingQuery = supabase
-        .from('donations')
-        .select('id', { count: 'exact' })
-        .eq('matched_recipient_id', currentProfileId)
-        .in('status', ['picked_up', 'in_transit']);
+        const incomingQuery = supabase
+          .from('donations')
+          .select('id', { count: 'exact' })
+          .eq('matched_recipient_id', currentProfileId)
+          .in('status', ['picked_up', 'in_transit']);
 
-      // Received Today query (completed deliveries today)
-      const receivedTodayQuery = supabase
-        .from('donations')
-        .select('id', { count: 'exact' })
-        .eq('matched_recipient_id', currentProfileId)
-        .eq('status', 'delivered')
-        .gte('posted_at', todayStart.toISOString());
+        const receivedTodayQuery = supabase
+          .from('donations')
+          .select('id', { count: 'exact' })
+          .eq('matched_recipient_id', currentProfileId)
+          .eq('status', 'delivered')
+          .gte('posted_at', todayStart.toISOString());
 
-      // Recent Activity Ledger query
-      const recentQuery = supabase
-        .from('donations')
-        .select('id, food_description, food_type, quantity, unit, status, posted_at, donors:donor_id(org_name), drivers:matched_driver_id(full_name)')
-        .eq('matched_recipient_id', currentProfileId)
-        .order('posted_at', { ascending: false })
-        .limit(10);
+        const recentQuery = supabase
+          .from('donations')
+          .select('id, food_description, food_type, quantity, unit, status, posted_at, donors:donor_id(org_name), drivers:matched_driver_id(full_name)')
+          .eq('matched_recipient_id', currentProfileId)
+          .order('posted_at', { ascending: false })
+          .limit(10);
 
-      const [
-        { count: availableCount, error: err1 },
-        { count: acceptedCount, error: err2 },
-        { count: incomingCount, error: err3 },
-        { count: receivedCount, error: err4 },
-        { data: recentData, error: err5 }
-      ] = await Promise.all([
-        availableQuery,
-        acceptedQuery,
-        incomingQuery,
-        receivedTodayQuery,
-        recentQuery
-      ]);
+        const [
+          { count: availableCount, error: err1 },
+          { count: acceptedCount, error: err2 },
+          { count: incomingCount, error: err3 },
+          { count: receivedCount, error: err4 },
+          { data: recentData, error: err5 }
+        ] = await Promise.all([
+          availableQuery,
+          acceptedQuery,
+          incomingQuery,
+          receivedTodayQuery,
+          recentQuery
+        ]);
 
-      if (!err1 && !err2 && !err3 && !err4 && recentData) {
-        const formattedRecent = (recentData || []).map(d => ({
-          id: d.id,
-          food_description: d.food_description,
-          food_type: d.food_type,
-          quantity: d.quantity,
-          unit: d.unit,
-          status: d.status,
-          posted_at: d.posted_at,
-          donor_name: d.donors?.org_name || 'Verified Donor',
-          driver_name: d.drivers?.full_name || 'Assigned Courier'
-        }));
+        if (!err1 && !err2 && !err3 && !err4 && recentData) {
+          const formattedRecent = (recentData || []).map(d => ({
+            id: d.id,
+            food_description: d.food_description,
+            food_type: d.food_type,
+            quantity: d.quantity,
+            unit: d.unit,
+            status: d.status,
+            posted_at: d.posted_at,
+            donor_name: d.donors?.org_name || 'Verified Donor',
+            driver_name: d.drivers?.full_name || 'Assigned Courier'
+          }));
 
-        setDashboardStats({
-          stats: {
-            available_offers: availableCount ?? 0,
-            accepted_donations: acceptedCount ?? 0,
-            incoming_deliveries: incomingCount ?? 0,
-            received_today: receivedCount ?? 0
-          },
-          recent_donations: formattedRecent
-        });
-        return;
+          setDashboardStats({
+            stats: {
+              available_offers: availableCount ?? 0,
+              accepted_donations: acceptedCount ?? 0,
+              incoming_deliveries: incomingCount ?? 0,
+              received_today: receivedCount ?? 0
+            },
+            recent_donations: formattedRecent
+          });
+          return;
+        }
+      } catch (supabaseErr) {
+        console.warn('Supabase direct stats query failed, falling back to API:', supabaseErr);
       }
-    } catch (supabaseErr) {
-      console.warn('Supabase direct stats query failed, falling back to API:', supabaseErr);
     }
 
-    // Resilience API fallback
     try {
       const data = await apiRequest('/api/recipients/me/dashboard');
       if (data) {
@@ -284,26 +284,28 @@ export default function RecipientDashboard({ initialTab }) {
 
   async function fetchProfile(currentProfileId = user?.profileId) {
     if (!currentProfileId) return;
-    try {
-      const { data: recipient, error } = await supabase
-        .from('recipients')
-        .select('*')
-        .eq('id', currentProfileId)
-        .single();
+    if (supabase) {
+      try {
+        const { data: recipient, error } = await supabase
+          .from('recipients')
+          .select('*')
+          .eq('id', currentProfileId)
+          .single();
 
-      if (!error && recipient) {
-        setProfile(recipient);
-        setCurrentCapacity(String(recipient.capacity_current ?? 61));
-        setMaxCapacity(String(recipient.capacity_max ?? 85));
-        setSelectedFoodTypes(
-          Array.isArray(recipient.accepted_food_types) && recipient.accepted_food_types.length > 0
-            ? recipient.accepted_food_types
-            : ['prepared_meals', 'produce', 'bakery', 'dairy']
-        );
-        return;
+        if (!error && recipient) {
+          setProfile(recipient);
+          setCurrentCapacity(String(recipient.capacity_current ?? 61));
+          setMaxCapacity(String(recipient.capacity_max ?? 85));
+          setSelectedFoodTypes(
+            Array.isArray(recipient.accepted_food_types) && recipient.accepted_food_types.length > 0
+              ? recipient.accepted_food_types
+              : ['prepared_meals', 'produce', 'bakery', 'dairy']
+          );
+          return;
+        }
+      } catch (supabaseErr) {
+        console.warn('Supabase profile query failed, using API fallback:', supabaseErr);
       }
-    } catch (supabaseErr) {
-      console.warn('Supabase profile query failed, using API fallback:', supabaseErr);
     }
 
     try {
@@ -326,31 +328,33 @@ export default function RecipientDashboard({ initialTab }) {
 
   async function fetchOffers(currentProfileId = user?.profileId) {
     if (!currentProfileId) return;
-    try {
-      const { data, error } = await supabase
-        .from('donations')
-        .select('*, donors:donor_id(org_name, contact_phone)')
-        .eq('matched_recipient_id', currentProfileId)
-        .eq('status', 'posted')
-        .gt('expiry_window_end', new Date().toISOString())
-        .order('posted_at', { ascending: false });
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('donations')
+          .select('*, donors:donor_id(org_name, contact_phone)')
+          .eq('matched_recipient_id', currentProfileId)
+          .eq('status', 'posted')
+          .gt('expiry_window_end', new Date().toISOString())
+          .order('posted_at', { ascending: false });
 
-      if (!error && data) {
-        const now = new Date();
-        const formattedOffers = data.map(o => {
-          const expiryDate = new Date(o.expiry_window_end);
-          const diffSecs = Math.max(0, Math.floor((expiryDate - now) / 1000));
-          return {
-            ...o,
-            expires_in_seconds: diffSecs,
-            offer_timeout_remaining_seconds: o.offer_timeout_remaining_seconds || diffSecs
-          };
-        });
-        setOffers(formattedOffers);
-        return;
+        if (!error && data) {
+          const now = new Date();
+          const formattedOffers = data.map(o => {
+            const expiryDate = new Date(o.expiry_window_end);
+            const diffSecs = Math.max(0, Math.floor((expiryDate - now) / 1000));
+            return {
+              ...o,
+              expires_in_seconds: diffSecs,
+              offer_timeout_remaining_seconds: o.offer_timeout_remaining_seconds || diffSecs
+            };
+          });
+          setOffers(formattedOffers);
+          return;
+        }
+      } catch (supabaseErr) {
+        console.warn('Supabase offers query failed, using API fallback:', supabaseErr);
       }
-    } catch (supabaseErr) {
-      console.warn('Supabase offers query failed, using API fallback:', supabaseErr);
     }
 
     try {

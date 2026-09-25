@@ -41,6 +41,15 @@ app.use('/api/drivers', driverRoutes);
 const timeoutSec = parseInt(process.env.OFFER_TIMEOUT_SECONDS, 10) || 10;
 startTimeoutCascade(3000, timeoutSec);
 
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'Surplus-to-Shelter API',
+    database: 'sqlite',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

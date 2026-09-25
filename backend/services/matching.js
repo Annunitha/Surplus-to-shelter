@@ -213,7 +213,7 @@ async function rejectOffer(donationId, recipientId) {
  * Handle recipient accepting an offer (FR-3.3)
  * Sets status to 'matched', increments capacity_current, and triggers driver matching hook.
  */
-async function acceptOffer(donationId, recipientId) {
+async function acceptOffer(donationId, recipientId, preferredDriverId = null) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -277,7 +277,7 @@ async function acceptOffer(donationId, recipientId) {
 
     // Task 1: On donation reaching 'matched' status, trigger driver assignment
     const { assignDriver } = require('./dispatch');
-    const dispatchResult = await assignDriver(donationId);
+    const dispatchResult = await assignDriver(donationId, preferredDriverId);
 
     return {
       success: true,

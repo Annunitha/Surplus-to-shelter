@@ -108,6 +108,7 @@ function serializeValue(value) {
 function withUuidDefaults(sql, params) {
   const match = sql.match(/^(\s*INSERT\s+INTO\s+\w+\s*)\(([^)]+)\)\s*VALUES\s*\(/i);
   if (!match || /\bid\b/i.test(match[2])) return { sql, params };
+  if (/^\s*INSERT\s+INTO\s+feedback\b/i.test(sql)) return { sql, params };
 
   const shiftedSql = sql.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + 1}`);
   const shiftedMatch = shiftedSql.match(/^(\s*INSERT\s+INTO\s+\w+\s*)\(([^)]+)\)\s*VALUES\s*\(/i);

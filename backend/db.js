@@ -234,7 +234,10 @@ function createSchema() {
       status TEXT NOT NULL DEFAULT 'posted',
       matched_recipient_id TEXT,
       matched_driver_id TEXT,
-      city_id TEXT NOT NULL DEFAULT 'demo-city'
+      city_id TEXT NOT NULL DEFAULT 'demo-city',
+      fssai_certificate_name TEXT,
+      fssai_certificate_type TEXT,
+      fssai_certificate_data_url TEXT
     );
 
     CREATE TABLE IF NOT EXISTS deliveries (
@@ -298,7 +301,10 @@ function createSchema() {
             'ALTER TABLE feedback ADD COLUMN reviewer_role TEXT',
             'ALTER TABLE feedback ADD COLUMN reviewer_id TEXT',
             'ALTER TABLE donations ADD COLUMN notes TEXT',
-            'ALTER TABLE donations ADD COLUMN temperature_condition TEXT'
+            'ALTER TABLE donations ADD COLUMN temperature_condition TEXT',
+            'ALTER TABLE donations ADD COLUMN fssai_certificate_name TEXT',
+            'ALTER TABLE donations ADD COLUMN fssai_certificate_type TEXT',
+            'ALTER TABLE donations ADD COLUMN fssai_certificate_data_url TEXT'
           ];
           let index = 0;
           const runMigration = () => {

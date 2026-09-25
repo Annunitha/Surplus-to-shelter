@@ -48,6 +48,7 @@ export default function RecipientDashboard({ initialTab }) {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackTarget, setFeedbackTarget] = useState(null);
+  const [certificatePreview, setCertificatePreview] = useState(null);
 
   // Tab resolution: URL takes precedence, fallback to initialTab, then 'dashboard'
   const path = location.pathname;
@@ -591,6 +592,41 @@ export default function RecipientDashboard({ initialTab }) {
             </div>
           )}
 
+          {certificatePreview && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#22211E]/55 p-4">
+              <div className="w-full max-w-4xl rounded-2xl border border-[#D7D2C7] bg-[#F8F5EE] shadow-2xl overflow-hidden">
+                <div className="flex items-center justify-between border-b border-[#D7D2C7] px-4 py-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-[#6F6C64] font-bold">Donor verification</p>
+                    <h3 className="text-base font-bold text-[#22211E] mt-1">{certificatePreview.name}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCertificatePreview(null)}
+                    className="p-2 rounded-lg hover:bg-[#F3EFE7] text-[#22211E] cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="p-4 bg-white">
+                  {certificatePreview.type === 'application/pdf' ? (
+                    <iframe
+                      title="FSSAI certificate preview"
+                      src={certificatePreview.dataUrl}
+                      className="w-full h-[70vh] rounded-xl border border-[#D7D2C7]"
+                    />
+                  ) : (
+                    <img
+                      src={certificatePreview.dataUrl}
+                      alt="FSSAI certificate"
+                      className="max-h-[70vh] w-full object-contain rounded-xl border border-[#D7D2C7]"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'settings' ? (
             /* CAPACITY & FOOD PREFERENCES PAGE (MATCHING SCREENSHOT) */
             <div className="space-y-3.5 pb-6">
@@ -993,6 +1029,18 @@ export default function RecipientDashboard({ initialTab }) {
                           </div>
 
                           <div className="flex items-center gap-2 pt-2 border-t border-[#D7D2C7]">
+                            {offer.fssai_certificate_data_url && (
+                              <button
+                                type="button"
+                                onClick={() => setCertificatePreview({
+                                  name: offer.fssai_certificate_name || 'FSSAI Certificate',
+                                  type: offer.fssai_certificate_type || 'application/pdf',
+                                  dataUrl: offer.fssai_certificate_data_url
+                                })}
+                                className="flex-1 py-2 rounded-xl border border-[#D7D2C7] bg-[#FDFBF7] text-[#22211E] hover:bg-[#F3EFE7] text-xs font-semibold transition cursor-pointer">
+                                Review FSSAI certificate
+                              </button>
+                            )}
                             <button
                               onClick={() => handleReject(offer.id)}
                               disabled={isActing}

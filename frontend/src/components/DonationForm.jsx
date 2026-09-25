@@ -25,6 +25,7 @@ export default function DonationForm({ onSuccess, onCancel }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
+  const [certificate, setCertificate] = useState(null);
 
   const foodTypes = [
     { value: 'prepared_meals', label: 'Prepared Meals' },
@@ -49,6 +50,44 @@ export default function DonationForm({ onSuccess, onCancel }) {
     setForm(f => ({ ...f, [name]: value }));
   }
 
+  function handleCertificateUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) {
+      setCertificate(null);
+      return;
+    }
+
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF or a scanned image (PNG/JPG/WEBP) of the FSSAI certificate.');
+      setCertificate(null);
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Certificate file must be smaller than 5 MB.');
+      setCertificate(null);
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCertificate({
+        name: file.name,
+        type: file.type,
+        dataUrl: reader.result
+      });
+      setError('');
+    };
+    reader.onerror = () => {
+      setError('Unable to read the selected certificate. Please choose another file.');
+      setCertificate(null);
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -66,7 +105,10 @@ export default function DonationForm({ onSuccess, onCancel }) {
         body: JSON.stringify({
           ...form,
           quantity: parseFloat(form.quantity),
-          expiry_window_end: combinedDateTime.toISOString()
+          expiry_window_end: combinedDateTime.toISOString(),
+          fssai_certificate_name: certificate?.name || null,
+          fssai_certificate_type: certificate?.type || null,
+          fssai_certificate_data_url: certificate?.dataUrl || null
         })
       });
 
@@ -78,6 +120,7 @@ export default function DonationForm({ onSuccess, onCancel }) {
         unit: 'kg',
         pickup_address: form.pickup_address
       });
+      setCertificate(null);
 
       if (onSuccess) {
         setTimeout(() => onSuccess(data.donation), 900);
@@ -218,6 +261,33 @@ export default function DonationForm({ onSuccess, onCancel }) {
               />
             </div>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-[#22211E] mb-1.5">
+            FSSAI food safety certificate
+          </label>
+          <input
+            type="file"
+            accept="application/pdf,image/png,image/jpeg,image/webp"
+            onChange={handleCertificateUpload}
+            className="block w-full text-sm text-[#6F6C64] file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-[#5F684B] file:text-white file:font-semibold file:cursor-pointer file:hover:bg-[#4D553C]"
+          />
+          <p className="mt-1.5 text-[11px] text-[#6F6C64]">
+            Upload a PDF or scanned image copy for recipient verification.
+          </p>
+          {certificate && (
+            <div className="mt-2 rounded-xl border border-[#D7D2C7] bg-[#F8F5EE] px-3 py-2 text-xs text-[#22211E] flex items-center justify-between gap-2">
+              <span className="truncate">{certificate.name}</span>
+              <button
+                type="button"
+                onClick={() => setCertificate(null)}
+                className="text-[#A05245] font-semibold cursor-pointer"
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Submit Actions */}

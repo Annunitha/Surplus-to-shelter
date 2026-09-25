@@ -212,6 +212,7 @@ router.get('/me/offers', authenticateToken, requireRole('recipient'), async (req
     const query = `
       SELECT d.id, d.food_description, d.food_type, d.quantity, d.unit, d.weight_kg,
              d.pickup_address, d.posted_at, d.expiry_window_end, d.status,
+             d.fssai_certificate_name, d.fssai_certificate_type, d.fssai_certificate_data_url,
              (ST_Distance(r.location, d.pickup_location) / 1000.0) AS distance_km
       FROM donations d
       JOIN recipients r ON r.id = $1
@@ -249,7 +250,10 @@ router.get('/me/offers', authenticateToken, requireRole('recipient'), async (req
         expiry_window_end: row.expiry_window_end,
         expires_in_seconds: remainingSeconds,
         offer_timeout_remaining_seconds: offerTimeoutRemaining,
-        status: row.status
+        status: row.status,
+        fssai_certificate_name: row.fssai_certificate_name || null,
+        fssai_certificate_type: row.fssai_certificate_type || null,
+        fssai_certificate_data_url: row.fssai_certificate_data_url || null
       };
     });
 

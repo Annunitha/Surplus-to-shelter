@@ -14,7 +14,9 @@ router.get('/me', authenticateToken, requireRole('driver'), async (req, res) => 
     const result = await pool.query(
       `SELECT id, name, contact_phone, status, city_id,
               ST_Y(current_location::geometry) AS lat,
-              ST_X(current_location::geometry) AS lng
+              ST_X(current_location::geometry) AS lng,
+              (SELECT AVG(rating) FROM feedback WHERE driver_id = drivers.id) AS average_rating,
+              (SELECT COUNT(*) FROM feedback WHERE driver_id = drivers.id) AS rating_count
        FROM drivers
        WHERE id = $1`,
       [req.user.profileId]
@@ -33,7 +35,9 @@ router.get('/me', authenticateToken, requireRole('driver'), async (req, res) => 
         status: d.status,
         city_id: d.city_id,
         lat: d.lat ? parseFloat(d.lat) : null,
-        lng: d.lng ? parseFloat(d.lng) : null
+        lng: d.lng ? parseFloat(d.lng) : null,
+        average_rating: d.average_rating ? parseFloat(Number(d.average_rating).toFixed(2)) : null,
+        rating_count: Number(d.rating_count) || 0
       }
     });
   } catch (err) {
@@ -80,7 +84,7 @@ router.patch('/me/status', authenticateToken, requireRole('driver'), async (req,
  */
 router.patch('/me', authenticateToken, requireRole('driver'), async (req, res) => {
   try {
-    const { name, contact_phone, city_id, status } = req.body;
+    const { name, contact_phone, city_id, status, lat, lng } = req.body;
     const driverId = req.user.profileId;
 
     const updates = [];
@@ -111,6 +115,16 @@ router.patch('/me', authenticateToken, requireRole('driver'), async (req, res) =
       }
       updates.push(`status = $${idx++}`);
       values.push(status);
+    }
+
+    if (lat !== undefined || lng !== undefined) {
+      const parsedLat = Number(lat);
+      const parsedLng = Number(lng);
+      if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng) || parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
+        return res.status(400).json({ error: 'Valid latitude and longitude are required together' });
+      }
+      updates.push(`current_location = ST_SetSRID(ST_MakePoint($${idx++}, $${idx++}), 4326)::geography`);
+      values.push(parsedLng, parsedLat);
     }
 
     if (updates.length === 0) {

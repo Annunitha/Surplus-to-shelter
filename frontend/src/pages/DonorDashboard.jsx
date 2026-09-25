@@ -446,6 +446,7 @@ export default function DonorDashboard({ initialTab }) {
                           <th className="py-3 px-6">Description</th>
                           <th className="py-3 px-4">Category</th>
                           <th className="py-3 px-4">Quantity</th>
+                          <th className="py-3 px-4">Driver Rating</th>
                           <th className="py-3 px-4">Status</th>
                           <th className="py-3 px-6 text-right">Timing</th>
                         </tr>
@@ -462,6 +463,9 @@ export default function DonorDashboard({ initialTab }) {
                             </td>
                             <td className="py-3.5 px-4 font-semibold text-[#22211E]">
                               {d.quantity} {d.unit}
+                            </td>
+                            <td className="py-3.5 px-4 text-[#6F684B] font-semibold">
+                              {d.driver_name ? `${d.driver_name} ${d.driver_rating != null ? `(${Number(d.driver_rating).toFixed(1)}★)` : '(New)'}` : 'Not assigned'}
                             </td>
                             <td className="py-3.5 px-4">
                               <StatusBadge status={d.status} />

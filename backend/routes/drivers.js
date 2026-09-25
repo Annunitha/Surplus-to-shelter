@@ -276,8 +276,7 @@ router.post('/me/assignment/:donationId/picked-up', authenticateToken, requireRo
     const donRes = await client.query(
       `SELECT id, status, matched_driver_id
        FROM donations
-       WHERE id = $1 AND matched_driver_id = $2
-       FOR UPDATE`,
+      WHERE id = $1 AND matched_driver_id = $2`,
       [donationId, driverId]
     );
 
@@ -360,8 +359,7 @@ router.post('/me/assignment/:donationId/delivered', authenticateToken, requireRo
     const donRes = await client.query(
       `SELECT id, status, matched_driver_id, weight_kg, quantity
        FROM donations
-       WHERE id = $1 AND matched_driver_id = $2
-       FOR UPDATE`,
+      WHERE id = $1 AND matched_driver_id = $2`,
       [donationId, driverId]
     );
 

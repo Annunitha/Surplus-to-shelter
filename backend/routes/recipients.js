@@ -269,6 +269,38 @@ router.get('/me/offers', authenticateToken, requireRole('recipient'), async (req
 });
 
 /**
+ * GET /api/recipients/me/offers/:donationId/drivers
+ * Available drivers ordered by rating, then distance to the donation pickup.
+ */
+router.get('/me/offers/:donationId/drivers', authenticateToken, requireRole('recipient'), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT drv.id, drv.name, drv.status,
+              COALESCE((SELECT ROUND(AVG(f.rating), 2) FROM feedback f WHERE f.driver_id = drv.id), 0) AS average_rating,
+              (ST_Distance(drv.current_location, d.pickup_location) / 1000.0) AS distance_km
+       FROM drivers drv
+       JOIN donations d ON d.id = $1
+       WHERE drv.status = 'available'
+       ORDER BY average_rating DESC, ST_Distance(drv.current_location, d.pickup_location) ASC`,
+      [req.params.donationId]
+    );
+
+    res.json({
+      drivers: result.rows.map(driver => ({
+        id: driver.id,
+        name: driver.name,
+        status: driver.status,
+        average_rating: Number(driver.average_rating) || 0,
+        distance_km: driver.distance_km == null ? null : Number(Number(driver.distance_km).toFixed(2))
+      }))
+    });
+  } catch (err) {
+    console.error('Fetch available drivers error:', err);
+    res.status(500).json({ error: 'Failed to fetch available drivers', details: err.message });
+  }
+});
+
+/**
  * POST /api/recipients/me/offers/:donationId/accept
  * Sets donation status to 'matched', increments recipient capacity_current (FR-3.3)
  */
@@ -277,7 +309,7 @@ router.post('/me/offers/:donationId/accept', authenticateToken, requireRole('rec
     const { donationId } = req.params;
     const recipientId = req.user.profileId;
 
-    const result = await acceptOffer(donationId, recipientId);
+    const result = await acceptOffer(donationId, recipientId, req.body.driver_id || null);
     res.json({
       message: 'Offer accepted successfully',
       status: result.status,

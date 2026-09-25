@@ -40,6 +40,8 @@ export default function RecipientDashboard({ initialTab }) {
   const user = getUser();
   const [profile, setProfile] = useState(null);
   const [offers, setOffers] = useState([]);
+  const [offerDrivers, setOfferDrivers] = useState({});
+  const [selectedDriverByOffer, setSelectedDriverByOffer] = useState({});
   const [dashboardStats, setDashboardStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -355,6 +357,7 @@ export default function RecipientDashboard({ initialTab }) {
             };
           });
           setOffers(formattedOffers);
+          loadOfferDrivers(formattedOffers);
           return;
         }
       } catch (supabaseErr) {
@@ -364,10 +367,35 @@ export default function RecipientDashboard({ initialTab }) {
 
     try {
       const data = await apiRequest('/api/recipients/me/offers');
-      setOffers(data.offers || []);
+      const nextOffers = data.offers || [];
+      setOffers(nextOffers);
+      loadOfferDrivers(nextOffers);
     } catch (err) {
       console.error('Failed to fetch offers:', err);
     }
+  }
+
+  async function loadOfferDrivers(nextOffers) {
+    const entries = await Promise.all(
+      nextOffers.map(async offer => {
+        try {
+          const data = await apiRequest(`/api/recipients/me/offers/${offer.id}/drivers`);
+          return [offer.id, data.drivers || []];
+        } catch (err) {
+          console.error('Failed to fetch available drivers:', err);
+          return [offer.id, []];
+        }
+      })
+    );
+    const driverMap = Object.fromEntries(entries);
+    setOfferDrivers(driverMap);
+    setSelectedDriverByOffer(prev => {
+      const next = { ...prev };
+      entries.forEach(([offerId, drivers]) => {
+        if (!next[offerId] && drivers[0]) next[offerId] = drivers[0].id;
+      });
+      return next;
+    });
   }
 
   function handleCancelSettings() {
@@ -469,7 +497,8 @@ export default function RecipientDashboard({ initialTab }) {
     setActionLoading(offerId);
     try {
       const acceptedOrder = await apiRequest(`/api/recipients/me/offers/${offerId}/accept`, {
-        method: 'POST'
+        method: 'POST',
+        body: JSON.stringify({ driver_id: selectedDriverByOffer[offerId] || null })
       });
       if (acceptedOrder.driverId) {
         setFeedbackTarget({ donationId: offerId, driverId: acceptedOrder.driverId });
@@ -988,6 +1017,7 @@ export default function RecipientDashboard({ initialTab }) {
                     {offers.map(offer => {
                       const isActing = actionLoading === offer.id;
                       const timeoutSecs = offer.offer_timeout_remaining_seconds;
+                      const availableDrivers = offerDrivers[offer.id] || [];
 
                       return (
                         <div
@@ -1032,18 +1062,20 @@ export default function RecipientDashboard({ initialTab }) {
                           </div>
 
                           <div className="flex items-center gap-2 pt-2 border-t border-[#D7D2C7]">
-                            {offer.fssai_certificate_data_url && (
-                              <button
-                                type="button"
-                                onClick={() => setCertificatePreview({
-                                  name: offer.fssai_certificate_name || 'FSSAI Certificate',
-                                  type: offer.fssai_certificate_type || 'application/pdf',
-                                  dataUrl: offer.fssai_certificate_data_url
-                                })}
-                                className="flex-1 py-2 rounded-xl border border-[#D7D2C7] bg-[#FDFBF7] text-[#22211E] hover:bg-[#F3EFE7] text-xs font-semibold transition cursor-pointer">
-                                Review FSSAI certificate
-                              </button>
-                            )}
+                            <select
+                              value={selectedDriverByOffer[offer.id] || ''}
+                              onChange={e => setSelectedDriverByOffer(prev => ({ ...prev, [offer.id]: e.target.value }))}
+                              disabled={isActing || availableDrivers.length === 0}
+                              className="min-w-0 flex-1 py-2 px-2 rounded-xl border border-[#D7D2C7] bg-[#FDFBF7] text-[#22211E] text-[11px] font-semibold disabled:opacity-50"
+                              aria-label="Choose driver">
+                              {availableDrivers.length === 0 ? (
+                                <option value="">No drivers available</option>
+                              ) : availableDrivers.map(driver => (
+                                <option key={driver.id} value={driver.id}>
+                                  {driver.name} - {driver.average_rating.toFixed(1)}★{driver.distance_km != null ? `, ${driver.distance_km} km` : ''}
+                                </option>
+                              ))}
+                            </select>
                             <button
                               onClick={() => handleReject(offer.id)}
                               disabled={isActing}
@@ -1053,7 +1085,8 @@ export default function RecipientDashboard({ initialTab }) {
                             <button
                               onClick={() => handleAccept(offer.id)}
                               disabled={isActing}
-                              className="flex-2 py-2 rounded-xl bg-[#5F684B] hover:bg-[#4D553C] text-white text-xs font-semibold transition shadow-xs cursor-pointer disabled:opacity-50">
+                              disabled={isActing || availableDrivers.length === 0}
+                              className="flex-1 py-2 rounded-xl bg-[#5F684B] hover:bg-[#4D553C] text-white text-xs font-semibold transition shadow-xs cursor-pointer disabled:opacity-50">
                               {isActing ? 'Processing...' : 'Accept Order'}
                             </button>
                           </div>

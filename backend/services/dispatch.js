@@ -36,7 +36,7 @@ async function upsertDonationConnection({ donationId, donorId, recipientId, driv
  * Task 1 & FR-4.1: Assign nearest available driver to a 'matched' donation.
  * If no driver is available, leave in 'matched' awaiting driver (FR-4.4).
  */
-async function assignDriver(donationId) {
+async function assignDriver(donationId, preferredDriverId = null) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -82,10 +82,11 @@ async function assignDriver(donationId) {
        FROM drivers d
        LEFT JOIN users u ON u.profile_id = d.id
        WHERE d.status = 'available'
+         AND ($2 IS NULL OR d.id = $2)
       ORDER BY average_rating DESC, ST_Distance(d.current_location, $1) ASC
        LIMIT 1
       `,
-      [donation.pickup_location]
+      [donation.pickup_location, preferredDriverId]
     );
 
     if (driverRes.rows.length === 0) {
@@ -140,6 +141,13 @@ async function assignDriver(donationId) {
       driverId: driver.id,
       pickup_eta: pickupEta.toISOString(),
       dropoff_eta: dropoffEta.toISOString()
+    });
+    emitEvent('donation:driver_assigned', {
+      donationId,
+      driverId: driver.id,
+      driverName: driver.name,
+      driverRating: Number(driver.average_rating) || 0,
+      distance_km: driver.distance_km
     });
 
     // Notify driver (FR-7.2)

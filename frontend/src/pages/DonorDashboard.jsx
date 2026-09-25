@@ -69,14 +69,24 @@ export default function DonorDashboard({ initialTab }) {
 
     const socket = getSocket();
     function handleStatusChanged({ donationId, status }) {
+      setDonations(prev => prev.map(d => (d.id === donationId ? { ...d, status } : d)));
+      fetchDonations();
+    }
+
+    function handleDriverAssigned({ donationId, driverId, driverName, driverRating }) {
       setDonations(prev =>
-        prev.map(d => (d.id === donationId ? { ...d, status } : d))
+        prev.map(d => (d.id === donationId
+          ? { ...d, matched_driver_id: driverId, driver_name: driverName, driver_rating: driverRating }
+          : d))
       );
+      fetchDonations();
     }
 
     socket.on('donation:status_changed', handleStatusChanged);
+    socket.on('donation:driver_assigned', handleDriverAssigned);
     return () => {
       socket.off('donation:status_changed', handleStatusChanged);
+      socket.off('donation:driver_assigned', handleDriverAssigned);
     };
   }, []);
 

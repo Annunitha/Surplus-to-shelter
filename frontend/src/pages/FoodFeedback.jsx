@@ -22,7 +22,7 @@ export default function FoodFeedback({ driverId, donationId }) {
             setStatusMessage({ text: data.message || 'Thank you! Your feedback has been saved.', isError: false });
             setFormData({ name: '', rating: '5', comments: '' });
         } catch (error) {
-            setStatusMessage({ text: 'Error connecting to the server.', isError: true });
+            setStatusMessage({ text: error.message || 'Unable to save feedback.', isError: true });
             console.error('Submission error:', error);
         }
     };

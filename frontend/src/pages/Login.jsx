@@ -76,28 +76,28 @@ export default function Login() {
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
       const body = isRegister
         ? {
-            email: form.email,
+            email: form.email.trim(),
             password: form.password,
             role: form.role,
             ...(form.role === 'donor' && {
-              org_name: form.org_name || 'Downtown Food Partner',
-              address_text: form.address_text || 'Connaught Place, Delhi',
-              lat: parseFloat(form.lat) || 28.6315,
-              lng: parseFloat(form.lng) || 77.2167
+              org_name: form.org_name.trim(),
+              address_text: form.address_text.trim(),
+              lat: parseFloat(form.lat),
+              lng: parseFloat(form.lng)
             }),
             ...(form.role === 'recipient' && {
-              org_name: form.org_name || 'Community Shelter',
-              address_text: form.address_text || 'Pahar Ganj, Delhi',
-              lat: parseFloat(form.lat) || 28.6410,
-              lng: parseFloat(form.lng) || 77.2140,
+              org_name: form.org_name.trim(),
+              address_text: form.address_text.trim(),
+              lat: parseFloat(form.lat),
+              lng: parseFloat(form.lng),
               accepted_food_types: form.accepted_food_types,
-              capacity_max: parseInt(form.capacity_max, 10) || 100
+              capacity_max: parseInt(form.capacity_max, 10)
             }),
             ...(form.role === 'driver' && {
-              name: form.name || form.org_name || 'Volunteer Courier',
-              contact_phone: form.contact_phone || '+91 98765 43210',
-              lat: parseFloat(form.lat) || 28.6300,
-              lng: parseFloat(form.lng) || 77.2180
+              name: (form.name || form.org_name).trim(),
+              contact_phone: form.contact_phone.trim(),
+              lat: parseFloat(form.lat),
+              lng: parseFloat(form.lng)
             })
           }
         : {
@@ -298,21 +298,56 @@ export default function Login() {
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <label className="block text-xs font-semibold text-[#22211E] mb-1">Physical Address</label>
-                      <div className="relative">
-                        <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#99958B]" />
-                        <input
-                          type="text"
-                          name="address_text"
-                          required
-                          value={form.address_text}
-                          onChange={handleChange}
-                          placeholder="Street, City, Sector"
-                          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl input-warm text-sm"
-                        />
+                    <>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#22211E] mb-1">Physical Address</label>
+                        <div className="relative">
+                          <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#99958B]" />
+                          <input
+                            type="text"
+                            name="address_text"
+                            required
+                            value={form.address_text}
+                            onChange={handleChange}
+                            placeholder="Street, City, Sector"
+                            className="w-full pl-9 pr-3.5 py-2.5 rounded-xl input-warm text-sm"
+                          />
+                        </div>
                       </div>
-                    </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#22211E] mb-1">Latitude</label>
+                          <input
+                            type="number"
+                            name="lat"
+                            required
+                            step="any"
+                            min="-90"
+                            max="90"
+                            value={form.lat}
+                            onChange={handleChange}
+                            placeholder="28.6315"
+                            className="w-full px-3.5 py-2.5 rounded-xl input-warm text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#22211E] mb-1">Longitude</label>
+                          <input
+                            type="number"
+                            name="lng"
+                            required
+                            step="any"
+                            min="-180"
+                            max="180"
+                            value={form.lng}
+                            onChange={handleChange}
+                            placeholder="77.2167"
+                            className="w-full px-3.5 py-2.5 rounded-xl input-warm text-sm"
+                          />
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   {form.role === 'recipient' && (

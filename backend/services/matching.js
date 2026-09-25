@@ -3,7 +3,7 @@ const { notifyRecipientOffer } = require('./notifications');
 
 // Configuration constants from ARCHITECTURE.md §4
 const DEFAULT_RADIUS_METERS = parseInt(process.env.MATCH_RADIUS_METERS, 10) || 8000;
-const OFFER_TIMEOUT_SECONDS = parseInt(process.env.OFFER_TIMEOUT_SECONDS, 10) || 30; // 30s for demo/verification
+const OFFER_TIMEOUT_SECONDS = parseInt(process.env.OFFER_TIMEOUT_SECONDS, 10) || 900;
 
 // In-memory tracker for active offers and rejection history:
 // donationId -> { recipientId, offeredAt, excludedRecipientIds: Set<string> }
@@ -218,13 +218,13 @@ async function acceptOffer(donationId, recipientId) {
   try {
     await client.query('BEGIN');
 
-    // Verify donation exists and is offered to this recipient
+    // Verify the donation is still open. The transaction makes the first acceptance win.
     const donRes = await client.query(
       `SELECT id, weight_kg, quantity, status, expiry_window_end
        FROM donations
-       WHERE id = $1 AND matched_recipient_id = $2
-       FOR UPDATE`,
-      [donationId, recipientId]
+       WHERE id = $1 AND status = 'posted'
+      `,
+      [donationId]
     );
 
     if (donRes.rows.length === 0) {
@@ -245,10 +245,10 @@ async function acceptOffer(donationId, recipientId) {
       throw new Error(`Cannot accept donation with status: ${donation.status}`);
     }
 
-    // Update donation status to 'matched' (FR-3.3)
+    // The first recipient to accept claims the donation.
     await client.query(
-      `UPDATE donations SET status = 'matched' WHERE id = $1`,
-      [donationId]
+      `UPDATE donations SET status = 'matched', matched_recipient_id = $2 WHERE id = $1`,
+      [donationId, recipientId]
     );
 
     // Increment recipient capacity_current (Task 3)
@@ -277,11 +277,14 @@ async function acceptOffer(donationId, recipientId) {
 
     // Task 1: On donation reaching 'matched' status, trigger driver assignment
     const { assignDriver } = require('./dispatch');
-    assignDriver(donationId).catch(err => {
-      console.error('[Matching] Error assigning driver after accept:', err.message);
-    });
+    const dispatchResult = await assignDriver(donationId);
 
-    return { success: true, status: 'matched', donationId };
+    return {
+      success: true,
+      status: 'matched',
+      donationId,
+      driver: dispatchResult.driver || null
+    };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

@@ -45,7 +45,7 @@ export default function DonorHelp() {
     },
     {
       q: 'What happens if a recipient shelter declines or reaches full capacity?',
-      a: 'The FoodRescue matching engine automatically runs an instantaneous cascade algorithm, redirecting the surplus food offer to the next closest verified shelter within a 5 km radius in under 30 seconds without interrupting your day.'
+      a: 'The FoodRescue matching engine automatically runs an instantaneous cascade algorithm, redirecting the surplus food offer to the next closest verified shelter within a 5 km radius in under 15 minutes without interrupting your day.'
     }
   ];
 

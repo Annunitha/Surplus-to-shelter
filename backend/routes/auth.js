@@ -12,17 +12,26 @@ router.post('/register', async (req, res) => {
     const { email, password, role, org_name, name, contact_phone, address_text, lat, lng,
             accepted_food_types, capacity_max } = req.body;
 
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanOrgName = typeof org_name === 'string' ? org_name.trim() : '';
+    const cleanName = typeof name === 'string' ? name.trim() : '';
+    const cleanAddress = typeof address_text === 'string' ? address_text.trim() : '';
+    const cleanPhone = typeof contact_phone === 'string' ? contact_phone.trim() : '';
+    const hasValidCoords = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
+    const safeLat = Number(lat);
+    const safeLng = Number(lng);
+
     // Validate role
     if (!['donor', 'recipient', 'driver'].includes(role)) {
       return res.status(400).json({ error: 'Role must be donor, recipient, or driver' });
     }
 
-    if (!email || !password) {
+    if (!cleanEmail || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
     // Check if user already exists
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const existing = await pool.query('SELECT id FROM users WHERE LOWER(TRIM(email)) = $1', [cleanEmail]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Email already registered' });
     }
@@ -32,8 +41,8 @@ router.post('/register', async (req, res) => {
     let profileId;
 
     if (role === 'donor') {
-      if (!org_name || !address_text || lat == null || lng == null) {
-        return res.status(400).json({ error: 'Donor requires org_name, address_text, lat, lng' });
+      if (!cleanOrgName || !cleanAddress || !hasValidCoords) {
+        return res.status(400).json({ error: 'Donor requires a valid org_name and address_text with valid lat/lng' });
       }
       const result = await pool.query(
         `INSERT INTO donors (org_name, contact_email, contact_phone, location, lat, lng, address_text)
@@ -44,8 +53,8 @@ router.post('/register', async (req, res) => {
       profileId = result.rows[0].id;
 
     } else if (role === 'recipient') {
-      if (!org_name || !address_text || lat == null || lng == null || !accepted_food_types || !capacity_max) {
-        return res.status(400).json({ error: 'Recipient requires org_name, address_text, lat, lng, accepted_food_types, capacity_max' });
+      if (!cleanOrgName || !cleanAddress || !hasValidCoords || !accepted_food_types || !capacity_max) {
+        return res.status(400).json({ error: 'Recipient requires a valid org_name, address_text, valid lat/lng, accepted_food_types, and capacity_max' });
       }
       const result = await pool.query(
         `INSERT INTO recipients (org_name, contact_email, contact_phone, location, lat, lng, address_text, accepted_food_types, capacity_max)
@@ -56,11 +65,11 @@ router.post('/register', async (req, res) => {
       profileId = result.rows[0].id;
 
     } else if (role === 'driver') {
-      if (!name) {
-        return res.status(400).json({ error: 'Driver requires name' });
+      if (!cleanName) {
+        return res.status(400).json({ error: 'Driver requires a valid name' });
       }
       let result;
-      if (lat != null && lng != null) {
+      if (hasValidCoords) {
         result = await pool.query(
           `INSERT INTO drivers (name, contact_phone, current_location, lat, lng)
            VALUES ($1, $2, $3, $4, $5)
@@ -72,7 +81,7 @@ router.post('/register', async (req, res) => {
           `INSERT INTO drivers (name, contact_phone)
            VALUES ($1, $2)
            RETURNING id`,
-          [name, contact_phone || null]
+          [cleanName, cleanPhone || null]
         );
       }
       profileId = result.rows[0].id;
@@ -82,7 +91,7 @@ router.post('/register', async (req, res) => {
     await pool.query(
       `INSERT INTO users (email, password_hash, role, profile_id)
        VALUES ($1, $2, $3, $4)`,
-      [email, password_hash, role, profileId]
+      [cleanEmail, password_hash, role, profileId]
     );
 
     // Generate JWT

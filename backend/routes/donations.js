@@ -138,7 +138,9 @@ router.get('/mine', authenticateToken, requireRole('donor'), async (req, res) =>
     const result = await pool.query(
       `SELECT id, food_description, food_type, quantity, unit, weight_kg,
               pickup_address, status, posted_at, expiry_window_end,
-              matched_recipient_id, matched_driver_id
+              matched_recipient_id, matched_driver_id,
+              (SELECT name FROM drivers WHERE id = donations.matched_driver_id) AS driver_name,
+              (SELECT ROUND(AVG(f.rating), 2) FROM feedback f WHERE f.driver_id = donations.matched_driver_id) AS driver_rating
        FROM donations
        WHERE donor_id = $1
        ORDER BY posted_at DESC`,

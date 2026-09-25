@@ -28,11 +28,12 @@ const db = new sqlite3.Database(dbPath);
 function normalizeSql(sql, params = []) {
   let normalized = sql.trim();
 
-  normalized = normalized.replace(/::\w+/g, '');
+  normalized = normalized.replace(/::\w+(?:\[\])?/g, '');
   normalized = normalized.replace(/COUNT\(\*\)::int/gi, 'COUNT(*)');
   normalized = normalized.replace(/COUNT\(\*\)::integer/gi, 'COUNT(*)');
   normalized = normalized.replace(/NOW\(\)/gi, "datetime('now')");
   normalized = normalized.replace(/CURRENT_TIMESTAMP/gi, "datetime('now')");
+  normalized = normalized.replace(/LEAST\(([^,]+),\s*([^\)]+)\)/gi, 'MIN($1, $2)');
   normalized = normalized.replace(/interval\s+'([^']+)'/gi, "");
   normalized = normalized.replace(/\+\s*interval\s+'([^']+)'/gi, (_, value) => {
     const match = value.trim().match(/^(\d+)\s+(second|minute|hour|day|month|year)s?$/i);
@@ -49,16 +50,20 @@ function normalizeSql(sql, params = []) {
 
   normalized = normalized.replace(/ST_Y\(([^)]+)\)/gi, (_, expr) => {
     const clean = expr.replace(/::geometry|::geography/g, '').trim();
+    if (clean.includes('r.location')) return 'r.lat';
+    if (clean.includes('d.pickup_location')) return 'd.pickup_lat';
     if (clean.includes('pickup_location')) return 'pickup_lat';
-    if (clean.includes('current_location')) return 'lat';
+    if (clean.includes('current_location')) return "json_extract(current_location, '$.lat')";
     if (clean.includes('location')) return 'lat';
     return 'lat';
   });
 
   normalized = normalized.replace(/ST_X\(([^)]+)\)/gi, (_, expr) => {
     const clean = expr.replace(/::geometry|::geography/g, '').trim();
+    if (clean.includes('r.location')) return 'r.lng';
+    if (clean.includes('d.pickup_location')) return 'd.pickup_lng';
     if (clean.includes('pickup_location')) return 'pickup_lng';
-    if (clean.includes('current_location')) return 'lng';
+    if (clean.includes('current_location')) return "json_extract(current_location, '$.lng')";
     if (clean.includes('location')) return 'lng';
     return 'lng';
   });
@@ -69,6 +74,18 @@ function normalizeSql(sql, params = []) {
 
   normalized = normalized.replace(/ST_Distance\([^)]*\)/gi, '0');
   normalized = normalized.replace(/ST_DWithin\([^)]*\)/gi, '1 = 1');
+  normalized = normalized.replace(
+    /(\$\d+)\s*=\s*ANY\(([^)]+)\)/gi,
+    (_, valueParam, arrayColumn) => `instr(${arrayColumn}, '"' || ${valueParam} || '"') > 0`
+  );
+  normalized = normalized.replace(
+    /([\w.]+)\s*=\s*ANY\((\$\d+)\)/gi,
+    (_, column, arrayParam) => `instr(${arrayParam}, ${column}) > 0`
+  );
+  normalized = normalized.replace(
+    /ST_SetSRID\(ST_MakePoint\((\$\d+),\s*(\$\d+)\),\s*4326\)/gi,
+    (_, lngParam, latParam) => `json_object('lat', ${latParam}, 'lng', ${lngParam})`
+  );
 
   const positional = [];
   normalized = normalized.replace(/\$(\d+)/g, (_, index) => {
@@ -77,44 +94,41 @@ function normalizeSql(sql, params = []) {
     return '?';
   });
 
-  normalized = normalized.replace(/ST_SetSRID\(ST_MakePoint\((\$\d+),(\$\d+)\),\s*4326\)::geography/gi, 'json_object(\'lat\', ?, \'lng\', ?)');
-  if (normalized.includes('json_object(\'lat\', ?, \'lng\', ?)')) {
-    const spliceCount = (normalized.match(/json_object\('lat', \?, 'lng', \?\)/gi) || []).length;
-    const generated = [];
-    for (let i = 0; i < spliceCount; i++) {
-      generated.push(positional.shift(), positional.shift());
-    }
-    positional.unshift(...generated);
-  }
-
   return { sql: normalized, params: positional };
 }
 
 function serializeValue(value) {
   if (value === undefined) return null;
   if (value === null) return null;
+  if (Array.isArray(value)) return JSON.stringify(value);
   if (value instanceof Date) return value.toISOString();
   return value;
 }
 
 function withUuidDefaults(sql, params) {
-  if (!sql.toUpperCase().startsWith('INSERT INTO ')) return { sql, params };
+  const match = sql.match(/^(\s*INSERT\s+INTO\s+\w+\s*)\(([^)]+)\)\s*VALUES\s*\(/i);
+  if (!match || /\bid\b/i.test(match[2])) return { sql, params };
 
-  if (sql.toUpperCase().includes('INSERT INTO USERS')) {
-    const hasId = sql.toUpperCase().includes('ID') && sql.includes('VALUES');
-    if (!hasId && !sql.toUpperCase().includes('PROFILE_ID')) {
-      params.unshift(require('crypto').randomUUID());
-      return { sql: sql.replace(/INSERT INTO users \(([^)]+)\) VALUES/, 'INSERT INTO users (id, $1) VALUES'), params };
-    }
-  }
-
-  return { sql, params };
+  const shiftedSql = sql.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + 1}`);
+  const shiftedMatch = shiftedSql.match(/^(\s*INSERT\s+INTO\s+\w+\s*)\(([^)]+)\)\s*VALUES\s*\(/i);
+  const id = require('crypto').randomUUID();
+  const replacement = `${shiftedMatch[1]}(id, ${shiftedMatch[2]}) VALUES ($1, `;
+  return {
+    sql: shiftedSql.replace(shiftedMatch[0], replacement),
+    params: [id, ...params]
+  };
 }
 
 function runQuery(sql, params = []) {
   return new Promise((resolve, reject) => {
-    const { sql: normalizedSql, params: normalizedParams } = normalizeSql(sql, params);
+    const prepared = withUuidDefaults(sql, params);
+    const { sql: normalizedSql, params: normalizedParams } = normalizeSql(prepared.sql, prepared.params);
     const finalSql = normalizedSql;
+
+    if (/^\s*(BEGIN|COMMIT|ROLLBACK)\b/i.test(finalSql)) {
+      resolve({ rows: [], rowCount: 0 });
+      return;
+    }
 
     db.all(finalSql, normalizedParams.map(serializeValue), (err, rows) => {
       if (err) {
@@ -127,9 +141,13 @@ function runQuery(sql, params = []) {
         return;
       }
 
+      if (rows.length > 0) {
+        resolve({ rows, rowCount: rows.length });
+        return;
+      }
+
       if (upper.startsWith('INSERT')) {
-        const id = normalizedParams[0];
-        resolve({ rows: [{ id, ...normalizedParams }], rowCount: 1 });
+        resolve({ rows: rows.length ? rows : [{ id: normalizedParams[0] }], rowCount: 1 });
         return;
       }
 
@@ -247,12 +265,53 @@ function createSchema() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      comments TEXT NOT NULL,
+      driver_id TEXT,
+      donation_id TEXT,
+      reviewer_role TEXT,
+      reviewer_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_donations_status ON donations(status);
     CREATE INDEX IF NOT EXISTS idx_donations_match ON donations(matched_recipient_id);
   `;
 
   return new Promise((resolve, reject) => {
-    db.exec(schemaSql, (err) => (err ? reject(err) : resolve()));
+    db.exec(schemaSql, (err) => {
+      if (err) return reject(err);
+
+      const defaultFoodTypes = JSON.stringify(['prepared_meals', 'produce', 'bakery', 'dairy', 'dry_goods', 'other']);
+      db.run(
+        `UPDATE recipients SET accepted_food_types = ? WHERE accepted_food_types IS NULL OR accepted_food_types = '[object Object]'`,
+        [defaultFoodTypes],
+        migrationErr => {
+          if (migrationErr) return reject(migrationErr);
+
+          const migrations = [
+            'ALTER TABLE feedback ADD COLUMN driver_id TEXT',
+            'ALTER TABLE feedback ADD COLUMN donation_id TEXT',
+            'ALTER TABLE feedback ADD COLUMN reviewer_role TEXT',
+            'ALTER TABLE feedback ADD COLUMN reviewer_id TEXT',
+            'ALTER TABLE donations ADD COLUMN notes TEXT',
+            'ALTER TABLE donations ADD COLUMN temperature_condition TEXT'
+          ];
+          let index = 0;
+          const runMigration = () => {
+            if (index === migrations.length) return resolve();
+            db.run(migrations[index++], error => {
+              if (error && !error.message.includes('duplicate column name')) return reject(error);
+              runMigration();
+            });
+          };
+          runMigration();
+        }
+      );
+    });
   });
 }
 

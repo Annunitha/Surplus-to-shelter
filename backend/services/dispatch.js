@@ -28,7 +28,7 @@ async function assignDriver(donationId) {
               pickup_location, pickup_address, status, matched_driver_id, expiry_window_end
        FROM donations
        WHERE id = $1
-       FOR UPDATE`,
+      `,
       [donationId]
     );
 
@@ -52,14 +52,15 @@ async function assignDriver(donationId) {
 
     // Find nearest available driver (straight-line PostGIS distance)
     const driverRes = await client.query(
-      `SELECT d.id, d.name, d.contact_phone, u.email,
+            `SELECT d.id, d.name, d.contact_phone, u.email,
+              COALESCE((SELECT AVG(f.rating) FROM feedback f WHERE f.driver_id = d.id), 0) AS average_rating,
               (ST_Distance(d.current_location, $1) / 1000.0) AS distance_km
        FROM drivers d
        LEFT JOIN users u ON u.profile_id = d.id
        WHERE d.status = 'available'
-       ORDER BY ST_Distance(d.current_location, $1) ASC
+      ORDER BY average_rating DESC, ST_Distance(d.current_location, $1) ASC
        LIMIT 1
-       FOR UPDATE OF d`,
+      `,
       [donation.pickup_location]
     );
 
@@ -98,7 +99,7 @@ async function assignDriver(donationId) {
 
     await client.query('COMMIT');
 
-    console.log(`[Dispatch] Assigned driver ${driver.name} (${driver.id}) to donation ${donationId} (${driver.distance_km ? driver.distance_km.toFixed(2) : '?'} km away)`);
+    console.log(`[Dispatch] Assigned driver ${driver.name} (${driver.id}) rating ${Number(driver.average_rating).toFixed(2)} (${driver.distance_km ? driver.distance_km.toFixed(2) : '?'} km away)`);
 
     // Emit WebSocket "assignment:new" per ARCHITECTURE.md §6
     emitEvent('assignment:new', {
@@ -115,7 +116,7 @@ async function assignDriver(donationId) {
 
     return {
       assigned: true,
-      driver: { id: driver.id, name: driver.name, distance_km: driver.distance_km },
+      driver: { id: driver.id, name: driver.name, average_rating: Number(driver.average_rating) || 0, distance_km: driver.distance_km },
       delivery: deliveryRes.rows[0]
     };
   } catch (err) {

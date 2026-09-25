@@ -14,6 +14,7 @@ const dispatchService = require('./services/dispatch');
 
 const app = express();
 const server = http.createServer(app);
+const feedback = require('./routes/feedback');
 const io = new Server(server, {
   cors: {
     origin: '*',
@@ -36,9 +37,10 @@ app.use('/api/impact', impactRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/recipients', recipientRoutes);
 app.use('/api/drivers', driverRoutes);
+app.use('/api/feedback',feedback);
 
-// Start background timeout cascade runner (check every 3s, default timeout 10s for demo/testing)
-const timeoutSec = parseInt(process.env.OFFER_TIMEOUT_SECONDS, 10) || 10;
+// Start background timeout cascade runner (check every 3s, default timeout 15m)
+const timeoutSec = parseInt(process.env.OFFER_TIMEOUT_SECONDS, 10) || 900;
 startTimeoutCascade(3000, timeoutSec);
 
 app.get('/', (req, res) => {

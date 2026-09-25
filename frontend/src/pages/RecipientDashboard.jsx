@@ -32,6 +32,7 @@ import Sidebar from '../components/common/Sidebar';
 import TopNavbar from '../components/common/TopNavbar';
 import StatusBadge from '../components/common/StatusBadge';
 import KpiCard from '../components/common/KpiCard';
+import FoodFeedback from './FoodFeedback';
 
 export default function RecipientDashboard({ initialTab }) {
   const navigate = useNavigate();
@@ -45,6 +46,8 @@ export default function RecipientDashboard({ initialTab }) {
   const [notification, setNotification] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackTarget, setFeedbackTarget] = useState(null);
 
   // Tab resolution: URL takes precedence, fallback to initialTab, then 'dashboard'
   const path = location.pathname;
@@ -253,7 +256,8 @@ export default function RecipientDashboard({ initialTab }) {
             status: d.status,
             posted_at: d.posted_at,
             donor_name: d.donors?.org_name || 'Verified Donor',
-            driver_name: d.drivers?.full_name || 'Assigned Courier'
+            driver_name: d.drivers?.full_name || d.driver_name || 'Assigned Courier',
+            driver_rating: d.driver_rating
           }));
 
           setDashboardStats({
@@ -411,7 +415,7 @@ export default function RecipientDashboard({ initialTab }) {
     setSavingSettings(true);
     try {
       // 1. Direct Supabase Update
-      if (user?.profileId) {
+      if (user?.profileId && supabase) {
         await supabase
           .from('recipients')
           .update({
@@ -463,12 +467,18 @@ export default function RecipientDashboard({ initialTab }) {
   async function handleAccept(offerId) {
     setActionLoading(offerId);
     try {
-      await apiRequest(`/api/recipients/me/offers/${offerId}/accept`, {
+      const acceptedOrder = await apiRequest(`/api/recipients/me/offers/${offerId}/accept`, {
         method: 'POST'
       });
+      if (acceptedOrder.driverId) {
+        setFeedbackTarget({ donationId: offerId, driverId: acceptedOrder.driverId });
+        setShowFeedback(true);
+      }
       setNotification({
         type: 'success',
-        message: 'Offer accepted! Dispatcher is now routing the nearest volunteer courier for pickup.'
+        message: acceptedOrder.driverName
+          ? `Order accepted. ${acceptedOrder.driverName} was selected (${Number(acceptedOrder.driverRating || 0).toFixed(1)}★) and is being routed nearby.`
+          : 'Order accepted! Dispatcher is now routing the nearest volunteer courier for pickup.'
       });
       await Promise.all([fetchProfile(), fetchOffers(), fetchDashboardStats()]);
     } catch (err) {
@@ -572,6 +582,12 @@ export default function RecipientDashboard({ initialTab }) {
                   ✕
                 </button>
               </div>
+            </div>
+          )}
+
+          {showFeedback && (
+            <div className="max-w-[860px] mx-auto mb-6">
+              <FoodFeedback driverId={feedbackTarget?.driverId} donationId={feedbackTarget?.donationId} />
             </div>
           )}
 
@@ -987,7 +1003,7 @@ export default function RecipientDashboard({ initialTab }) {
                               onClick={() => handleAccept(offer.id)}
                               disabled={isActing}
                               className="flex-2 py-2 rounded-xl bg-[#5F684B] hover:bg-[#4D553C] text-white text-xs font-semibold transition shadow-xs cursor-pointer disabled:opacity-50">
-                              {isActing ? 'Processing...' : 'Accept Offer'}
+                              {isActing ? 'Processing...' : 'Accept Order'}
                             </button>
                           </div>
                         </div>
@@ -1234,6 +1250,7 @@ export default function RecipientDashboard({ initialTab }) {
                           <th className="pb-2.5 font-bold">Donor Establishment</th>
                           <th className="pb-2.5 font-bold">Quantity</th>
                           <th className="pb-2.5 font-bold">Assigned Courier</th>
+                          <th className="pb-2.5 font-bold">Rating</th>
                           <th className="pb-2.5 font-bold">Status</th>
                         </tr>
                       </thead>
@@ -1244,6 +1261,9 @@ export default function RecipientDashboard({ initialTab }) {
                             <td className="py-3 text-[#6F6C64]">{item.donor_name || 'Verified Donor'}</td>
                             <td className="py-3 font-medium">{item.quantity} {item.unit}</td>
                             <td className="py-3 text-[#6F6C64]">{item.driver_name || 'En-route Volunteer'}</td>
+                            <td className="py-3 text-[#6F684B] font-semibold">
+                              {item.driver_rating != null ? `${Number(item.driver_rating).toFixed(1)}★` : 'New driver'}
+                            </td>
                             <td className="py-3">
                               <span
                                 className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${

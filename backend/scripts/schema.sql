@@ -74,6 +74,13 @@ CREATE TABLE impact_log (
   co2e_avoided_kg NUMERIC NOT NULL,
   logged_at TIMESTAMPTZ DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    comments TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE INDEX idx_donations_status ON donations(status);
 CREATE INDEX idx_recipients_location ON recipients USING GIST(location);

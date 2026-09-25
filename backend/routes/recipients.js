@@ -171,6 +171,7 @@ router.get('/me/dashboard', authenticateToken, requireRole('recipient'), async (
     const recentRes = await pool.query(
       `SELECT d.id, d.food_description, d.food_type, d.quantity, d.unit, d.weight_kg,
               d.status, d.posted_at, dn.org_name AS donor_name, dr.name AS driver_name,
+              (SELECT ROUND(AVG(f.rating), 2) FROM feedback f WHERE f.driver_id = d.matched_driver_id) AS driver_rating,
               del.pickup_eta, del.dropoff_eta, del.actual_delivery_time
        FROM donations d
        JOIN donors dn ON dn.id = d.donor_id
@@ -199,7 +200,7 @@ router.get('/me/dashboard', authenticateToken, requireRole('recipient'), async (
 
 /**
  * GET /api/recipients/me/offers
- * (recipient) Pending matched offers with distance, quantity, food_type, live expiry countdown
+ * (recipient) Posted, unexpired donations eligible for this recipient, with live expiry countdown
  * NFR-3: A donation whose expiry has passed NEVER appears as an offer.
  * NFR-4: Donor contact details are hidden until match reaches 'matched' status.
  */
@@ -214,9 +215,10 @@ router.get('/me/offers', authenticateToken, requireRole('recipient'), async (req
              (ST_Distance(r.location, d.pickup_location) / 1000.0) AS distance_km
       FROM donations d
       JOIN recipients r ON r.id = $1
-      WHERE d.matched_recipient_id = $1
-        AND d.status = 'posted'
+      WHERE d.status = 'posted'
         AND d.expiry_window_end > $2
+        AND r.capacity_current < r.capacity_max
+        AND instr(r.accepted_food_types, '"' || d.food_type || '"') > 0
       ORDER BY d.posted_at DESC
     `;
 
@@ -228,10 +230,10 @@ router.get('/me/offers', authenticateToken, requireRole('recipient'), async (req
       const remainingSeconds = Math.max(0, Math.floor((expiryDate.getTime() - now.getTime()) / 1000));
       
       const offerMeta = activeOffersMap.get(row.id);
-      let offerTimeoutRemaining = 30; // fallback default
+      let offerTimeoutRemaining = 900;
       if (offerMeta?.offeredAt) {
         const elapsed = Math.floor((Date.now() - offerMeta.offeredAt) / 1000);
-        offerTimeoutRemaining = Math.max(0, 30 - elapsed);
+        offerTimeoutRemaining = Math.max(0, 900 - elapsed);
       }
 
       return {
@@ -271,7 +273,10 @@ router.post('/me/offers/:donationId/accept', authenticateToken, requireRole('rec
     res.json({
       message: 'Offer accepted successfully',
       status: result.status,
-      donationId
+      donationId,
+      driverId: result.driver?.id || null,
+      driverName: result.driver?.name || null,
+      driverRating: result.driver?.average_rating ?? null
     });
   } catch (err) {
     console.error('Accept offer error:', err);
